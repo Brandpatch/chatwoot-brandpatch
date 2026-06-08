@@ -12,20 +12,20 @@ jobs:
       packages: write
       contents: read
     steps:
-      - name: Descargar Código
+      - name: Download source code
         uses: actions/checkout@v4
 
-      - name: Configurar Docker Buildx
+      - name: Configure Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Loguearse en GitHub Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compilar y Subir Imagen de Producción
+      - name: Compile and Push Production Image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production # 🔒 Llama a la bóveda mockeada de producción
     steps:
-      - name: Actualizar Servidor AWS Prod vía SSH
+      - name: Update AWS Prod Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.AWS_HOST }}
