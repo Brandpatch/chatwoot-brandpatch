@@ -1,9 +1,7 @@
 name: Sync GHSA advisories to Linear
 
 on:
-  schedule:
-    - cron: '0 4 * * *'  # daily at 09:30 IST
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
