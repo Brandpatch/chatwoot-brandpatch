@@ -3,7 +3,7 @@ name: CD - Chatwoot Development Environment
 on:
   push:
     branches:
-      - develop
+      - feature/ui-changes
 
 jobs:
   build-and-push:
@@ -40,6 +40,22 @@ jobs:
     runs-on: ubuntu-latest
     environment: Development
     steps:
+      # 1. Descargar el código fuente en el runner de GitHub para poder acceder a los archivos locales
+      - name: Download source code for deployment
+        uses: actions/checkout@v4
+
+      # 2. Copiar directamente el docker-compose.yaml y la carpeta de logos al disco de AWS por SCP
+      - name: Copy files to AWS via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ubuntu
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          source: "docker-compose.yaml,custom-brand/"
+          target: "~/chatwoot"
+
+      # 3. Conectarse por SSH únicamente a ordenar a Docker que refresque los contenedores
       - name: Update AWS Dev Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
