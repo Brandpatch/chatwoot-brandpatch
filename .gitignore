@@ -104,3 +104,4 @@ CLAUDE.local.md
 .pnpm-store/*
 local/
 Procfile.worktree
+\n# Brand assets are mounted via Docker volumes, not committed\n/public/brand-assets/

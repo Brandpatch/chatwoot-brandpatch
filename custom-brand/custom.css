@@ -1,0 +1,5 @@
+/* Login page — logo size */
+main > section > img {
+  height: 5rem !important;
+  width: auto !important;
+}

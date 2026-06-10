@@ -12,6 +12,8 @@ services:
       - ./custom-brand/assets/logo.svg:/app/public/brand-assets/logo_thumbnail.svg:ro
       - ./custom-brand/assets/favicon-16x16.png:/app/public/favicon-16x16.png:ro
       - ./custom-brand/assets/favicon-32x32.png:/app/public/favicon-32x32.png:ro
+      # CUSTOM CSS
+      - ./custom-brand/custom.css:/app/public/brand-assets/custom.css:ro
 
   rails:
     <<: *base

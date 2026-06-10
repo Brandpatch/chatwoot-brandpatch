@@ -34,6 +34,8 @@ services:
       # FAVICONS
       - ./custom-brand/assets/favicon-16x16.png:/app/public/favicon-16x16.png:ro
       - ./custom-brand/assets/favicon-32x32.png:/app/public/favicon-32x32.png:ro
+      # CUSTOM CSS
+      - ./custom-brand/custom.css:/app/public/brand-assets/custom.css:ro
     depends_on:
       - postgres
       - redis
