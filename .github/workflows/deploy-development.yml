@@ -40,6 +40,19 @@ jobs:
     runs-on: ubuntu-latest
     environment: Development
     steps:
+      - name: Download source code for deployment
+        uses: actions/checkout@v4
+
+      - name: Copy files to AWS via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ubuntu
+          key: ${{ secrets.AWS_SSH_KEY }}
+          port: 22
+          source: "docker-compose.yaml,custom-brand/"
+          target: "~/chatwoot"
+
       - name: Update AWS Dev Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
