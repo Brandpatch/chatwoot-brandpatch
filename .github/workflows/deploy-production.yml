@@ -40,11 +40,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     steps:
-      # 1. Descargar el código fuente en el runner para que SCP pueda leer docker-compose y la carpeta de logos
       - name: Download source code for deployment
         uses: actions/checkout@v4
 
-      # 2. Copiar de forma segura el docker-compose.yaml actualizado y tus logos a la carpeta de producción en AWS
       - name: Copy files to AWS via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -55,7 +53,6 @@ jobs:
           source: "docker-compose.yaml,custom-brand/"
           target: "~/chatwoot"
 
-      # 3. Conectarse por SSH a la máquina de producción únicamente para ordenar el refresco de contenedores
       - name: Update AWS Prod Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
