@@ -50,7 +50,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
-          source: "docker-compose.yaml,custom-brand/"
+          source: "docker-compose.production.yaml,custom-brand/"
           target: "~/chatwoot"
 
       - name: Update AWS Prod Server via SSH
@@ -63,6 +63,6 @@ jobs:
           script: |
             cd ~/chatwoot
             echo "${{ secrets.GHCR_DEPLOY_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            docker compose pull rails sidekiq
-            docker compose up -d
+            docker compose -f docker-compose.production.yaml pull rails sidekiq
+            docker compose -f docker-compose.production.yaml up -d
             docker logout ghcr.io

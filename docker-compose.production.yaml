@@ -2,10 +2,17 @@ version: '3'
 
 services:
   base: &base
-    image: chatwoot/chatwoot:latest
-    env_file: .env ## Change this file for customized env variables
+    image: ghcr.io/brandpatch/chatwoot-brandpatch:latest
+    env_file: .env
     volumes:
       - storage_data:/app/storage
+      - ./custom-brand/assets/logo.svg:/app/public/brand-assets/logo.svg:ro
+      - ./custom-brand/assets/logo.svg:/app/public/brand-assets/logo_dark.svg:ro
+      - ./custom-brand/assets/logo.svg:/app/public/brand-assets/logo_light.svg:ro
+      - ./custom-brand/assets/logo.svg:/app/public/brand-assets/logo_thumbnail.svg:ro
+      - ./custom-brand/assets/favicon-16x16.png:/app/public/favicon-16x16.png:ro
+      - ./custom-brand/assets/favicon-32x32.png:/app/public/favicon-32x32.png:ro
+      - ./custom-brand/custom.css:/app/public/brand-assets/custom.css:ro
 
   rails:
     <<: *base
@@ -42,10 +49,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=chatwoot
-      - POSTGRES_USER=postgres
-      # Please provide your own password.
-      - POSTGRES_PASSWORD=
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
   redis:
     image: redis:alpine
