@@ -64,7 +64,20 @@ services:
     ports:
       - '127.0.0.1:6379:6379'
 
+  evolution-api:
+    image: atendai/evolution-api:v2.3.7
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - evolution_instances:/evolution/instances
+    env_file: .env
+
 volumes:
   storage_data:
   postgres_data:
   redis_data:
+  evolution_instances:
