@@ -26,6 +26,7 @@ class Webhook < ApplicationRecord
 
   validates :account_id, presence: true
   validates :url, uniqueness: { scope: [:account_id] }, format: URI::DEFAULT_PARSER.make_regexp(%w[http https])
+  validates :debounce_delay, numericality: { greater_than_or_equal_to: 0, only_integer: true } # [brandpatch]
   validate :validate_webhook_subscriptions
   enum webhook_type: { account_type: 0, inbox_type: 1 }
 

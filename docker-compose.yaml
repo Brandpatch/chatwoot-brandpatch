@@ -64,7 +64,29 @@ services:
     ports:
       - '127.0.0.1:6379:6379'
 
+  redis-evolution:
+    image: redis:alpine
+    restart: always
+    ports:
+      - '127.0.0.1:6380:6379'
+    volumes:
+      - redis_evolution_data:/data
+
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    restart: always
+    depends_on:
+      - postgres
+      - redis-evolution
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - evolution_instances:/evolution/instances
+    env_file: .env
+
 volumes:
   storage_data:
   postgres_data:
   redis_data:
+  redis_evolution_data:
+  evolution_instances:
