@@ -15,7 +15,11 @@ class DebouncedWebhookJob < ApplicationJob
     webhook = Webhook.find_by(id: webhook_id)
     return if webhook.nil?
 
-    messages = raw_payloads.map { |raw| JSON.parse(raw, symbolize_names: true) }
+    messages = raw_payloads.filter_map do |raw|
+      JSON.parse(raw, symbolize_names: true)
+    rescue JSON::ParserError
+      nil
+    end
     batch_payload = { event: 'message_created', messages: messages }
 
     Redis::Alfred.delete(batch_key)
