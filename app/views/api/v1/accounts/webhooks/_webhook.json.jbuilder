@@ -4,6 +4,7 @@ json.url webhook.url
 json.account_id webhook.account_id
 json.subscriptions webhook.subscriptions
 json.secret webhook.secret
+json.debounce_delay webhook.debounce_delay
 if webhook.inbox
   json.inbox do
     json.id webhook.inbox.id

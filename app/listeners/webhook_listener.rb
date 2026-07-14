@@ -107,9 +107,10 @@ class WebhookListener < BaseListener
     deliver_webhook_payloads(payload, inbox)
   end
 
-  def deliver_account_webhooks(payload, account, debounce_contact_id: nil)
+  def deliver_account_webhooks(payload, account, debounce_contact_id: nil, inbox_id: nil)
     account.webhooks.account_type.each do |webhook|
       next unless webhook.subscriptions.include?(payload[:event])
+      next if webhook.inbox_id.present? && webhook.inbox_id != inbox_id
 
       if webhook.debounce_delay.positive? && debounce_contact_id
         enqueue_debounced_webhook(webhook, payload, debounce_contact_id)
@@ -130,7 +131,7 @@ class WebhookListener < BaseListener
   end
 
   def deliver_webhook_payloads(payload, inbox, debounce_contact_id: nil)
-    deliver_account_webhooks(payload, inbox.account, debounce_contact_id: debounce_contact_id)
+    deliver_account_webhooks(payload, inbox.account, debounce_contact_id: debounce_contact_id, inbox_id: inbox.id)
     deliver_api_inbox_webhooks(payload, inbox)
   end
 
