@@ -29,7 +29,7 @@ class WebhookListener < BaseListener
     return unless message.webhook_sendable?
 
     payload = message.webhook_data.merge(event: __method__.to_s)
-    deliver_webhook_payloads(payload, inbox)
+    deliver_webhook_payloads(payload, inbox, debounce_contact_id: message.conversation.contact_id)
   end
 
   def message_updated(event)
@@ -107,13 +107,17 @@ class WebhookListener < BaseListener
     deliver_webhook_payloads(payload, inbox)
   end
 
-  def deliver_account_webhooks(payload, account)
+  def deliver_account_webhooks(payload, account, debounce_contact_id: nil)
     account.webhooks.account_type.each do |webhook|
       next unless webhook.subscriptions.include?(payload[:event])
 
-      WebhookJob.perform_later(webhook.url, payload, :account_webhook,
-                               secret: webhook.secret,
-                               delivery_id: SecureRandom.uuid)
+      if webhook.debounce_delay.positive? && debounce_contact_id
+        enqueue_debounced_webhook(webhook, payload, debounce_contact_id)
+      else
+        WebhookJob.perform_later(webhook.url, payload, :account_webhook,
+                                 secret: webhook.secret,
+                                 delivery_id: SecureRandom.uuid)
+      end
     end
   end
 
@@ -125,8 +129,22 @@ class WebhookListener < BaseListener
                              secret: inbox.channel.secret, delivery_id: SecureRandom.uuid)
   end
 
-  def deliver_webhook_payloads(payload, inbox)
-    deliver_account_webhooks(payload, inbox.account)
+  def deliver_webhook_payloads(payload, inbox, debounce_contact_id: nil)
+    deliver_account_webhooks(payload, inbox.account, debounce_contact_id: debounce_contact_id)
     deliver_api_inbox_webhooks(payload, inbox)
+  end
+
+  def enqueue_debounced_webhook(webhook, payload, contact_id)
+    batch_key = format(Redis::RedisKeys::WEBHOOK_DEBOUNCE_BATCH, webhook_id: webhook.id, contact_id: contact_id)
+    version_key = format(Redis::RedisKeys::WEBHOOK_DEBOUNCE_VERSION, webhook_id: webhook.id, contact_id: contact_id)
+    ttl = webhook.debounce_delay + 60
+
+    Redis::Alfred.rpush(batch_key, payload.to_json)
+    Redis::Alfred.expire(batch_key, ttl)
+
+    version = Redis::Alfred.incr(version_key)
+    Redis::Alfred.expire(version_key, ttl)
+
+    DebouncedWebhookJob.set(wait: webhook.debounce_delay.seconds).perform_later(webhook.id, contact_id, version)
   end
 end
