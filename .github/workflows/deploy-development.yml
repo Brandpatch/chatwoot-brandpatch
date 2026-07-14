@@ -65,4 +65,5 @@ jobs:
             echo "${{ secrets.GHCR_DEPLOY_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose pull rails sidekiq
             docker compose up -d
+            docker compose exec -T rails bundle exec rails db:migrate
             docker logout ghcr.io
