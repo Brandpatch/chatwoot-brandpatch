@@ -97,7 +97,7 @@ module Redis::RedisKeys
   # At-most-one AssignmentJob per inbox in-flight (queued or running); further enqueues are skipped
   AUTO_ASSIGNMENT_IN_FLIGHT_KEY = 'AUTO_ASSIGNMENT_IN_FLIGHT::%<inbox_id>d'.freeze
 
-  ## Webhook Debounce Keys
+  ## [brandpatch] Webhook Debounce Keys
   WEBHOOK_DEBOUNCE_BATCH = 'WEBHOOK_DEBOUNCE::%<webhook_id>d::CONTACT::%<contact_id>d::BATCH'.freeze
   WEBHOOK_DEBOUNCE_VERSION = 'WEBHOOK_DEBOUNCE::%<webhook_id>d::CONTACT::%<contact_id>d::VERSION'.freeze
 

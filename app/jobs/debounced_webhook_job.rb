@@ -1,3 +1,4 @@
+# [brandpatch] Custom job for debounced webhook batching via Redis versioning
 class DebouncedWebhookJob < ApplicationJob
   queue_as :medium
 
