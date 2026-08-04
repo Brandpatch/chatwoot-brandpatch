@@ -1,8 +1,15 @@
 class Custom::CustomRole < ApplicationRecord
   self.table_name = 'custom_roles'
 
-  belongs_to :account
-  has_many :account_users, dependent: :nullify, foreign_key: :brandpatch_custom_role_id, inverse_of: :brandpatch_custom_role
+  # [brandpatch] class_name is explicit and absolute (leading ::) on both
+  # associations below because Rails resolves unqualified class names relative
+  # to the declaring class's namespace first — since we live under Custom::,
+  # it would otherwise find Custom::AccountUser (our unrelated prepend module
+  # for AccountUser, not an ActiveRecord model) before falling back to the
+  # real top-level AccountUser/Account classes.
+  belongs_to :account, class_name: '::Account'
+  has_many :account_users, class_name: '::AccountUser', dependent: :nullify, foreign_key: :brandpatch_custom_role_id,
+                            inverse_of: :brandpatch_custom_role
 
   PERMISSIONS = %w[
     conversation_manage
