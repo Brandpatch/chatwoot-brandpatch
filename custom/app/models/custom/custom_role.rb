@@ -2,7 +2,7 @@ class Custom::CustomRole < ApplicationRecord
   self.table_name = 'custom_roles'
 
   belongs_to :account
-  has_many :account_users, dependent: :nullify, foreign_key: :custom_role_id, inverse_of: :custom_role
+  has_many :account_users, dependent: :nullify, foreign_key: :brandpatch_custom_role_id, inverse_of: :brandpatch_custom_role
 
   PERMISSIONS = %w[
     conversation_manage
