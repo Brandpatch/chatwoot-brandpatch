@@ -272,3 +272,10 @@
   display_name: Delayed Automations
   enabled: false
   column: feature_flags_ext_1
+# [brandpatch] Own reimplementation of Custom Roles, independent from the
+# Enterprise-licensed `custom_roles` flag above (which is left untouched
+# since it's reset daily by Internal::ReconcilePlanConfigService).
+- name: custom_roles_brandpatch
+  display_name: Custom Roles
+  enabled: true
+  column: feature_flags_ext_1

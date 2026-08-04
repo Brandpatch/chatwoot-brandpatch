@@ -570,6 +570,24 @@ Rails.application.routes.draw do
   end
 
   # ----------------------------------------------------------------------
+  # [brandpatch] Routes for our own custom (non-Enterprise) feature builds.
+  # Mounted under a separate /custom prefix so it never collides with the
+  # unconditional `resources :custom_roles` route defined above, which still
+  # points at the Enterprise-licensed controller and is intentionally left
+  # untouched and unused.
+  if ChatwootApp.custom?
+    namespace :custom, defaults: { format: 'json' } do
+      namespace :api do
+        namespace :v1 do
+          resources :accounts do
+            resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
+          end
+        end
+      end
+    end
+  end
+
+  # ----------------------------------------------------------------------
   # Routes for platform APIs
   namespace :platform, defaults: { format: 'json' } do
     namespace :api do
