@@ -535,6 +535,11 @@ const actions = {
     commit(types.ASSIGN_PRIORITY, { priority, conversationId });
   },
 
+  assignSla: async ({ dispatch }, { conversationId, slaPolicyId }) => {
+    const { data } = await ConversationApi.updateSla({ conversationId, slaPolicyId });
+    dispatch('updateConversation', data);
+  },
+
   setContextMenuChatId({ commit }, chatId) {
     commit(types.SET_CONTEXT_MENU_CHAT_ID, chatId);
   },
