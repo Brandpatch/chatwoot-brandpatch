@@ -18,7 +18,7 @@ export const getUserPermissions = (user, accountId) => {
 
 export const getUserRole = (user, accountId) => {
   const currentAccount = getCurrentAccount(user, accountId) || {};
-  if (currentAccount.custom_role_id) {
+  if (currentAccount.custom_role_id || currentAccount.brandpatch_custom_role_id) {
     return 'custom_role';
   }
 

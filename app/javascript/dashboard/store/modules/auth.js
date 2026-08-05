@@ -72,7 +72,7 @@ export const getters = {
     const [currentAccount = {}] = accounts.filter(
       account => account.id === $getters.getCurrentAccountId
     );
-    return currentAccount.custom_role_id;
+    return currentAccount.custom_role_id || currentAccount.brandpatch_custom_role_id;
   },
 
   getCurrentUser($state) {

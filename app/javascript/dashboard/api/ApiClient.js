@@ -32,6 +32,10 @@ class ApiClient {
       url = `/enterprise${url}`;
     }
 
+    if (this.options.custom) {
+      url = `/custom${url}`;
+    }
+
     if (this.options.accountScoped && this.accountIdFromRoute) {
       url = `${url}/accounts/${this.accountIdFromRoute}`;
     }

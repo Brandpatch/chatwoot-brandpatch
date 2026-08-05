@@ -33,5 +33,6 @@ json.accounts do
     json.auto_offline account_user.auto_offline
     json.api_and_webhooks account_user.account.feature_enabled?('api_and_webhooks')
     json.partial! 'api/v1/models/account_user', account_user: account_user if ChatwootApp.enterprise?
+    json.partial! 'custom/api/v1/models/account_user', account_user: account_user if ChatwootApp.custom?
   end
 end

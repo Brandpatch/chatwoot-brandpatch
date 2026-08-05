@@ -124,7 +124,9 @@ const emitNewAccount = () => {
                 {{
                   account.custom_role_id
                     ? account.custom_role.name
-                    : account.role
+                    : account.brandpatch_custom_role_id
+                      ? account.brandpatch_custom_role.name
+                      : account.role
                 }}
               </span>
             </div>
