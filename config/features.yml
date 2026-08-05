@@ -276,7 +276,7 @@
 # Enterprise-licensed `custom_roles` flag above (which is left untouched
 # since it's reset daily by Internal::ReconcilePlanConfigService).
 - name: custom_roles_brandpatch
-  display_name: Custom Roles
+  display_name: Custom Roles (Brandpatch)
   enabled: true
   column: feature_flags_ext_1
 # [brandpatch] Own reimplementation of SLA, independent from the
