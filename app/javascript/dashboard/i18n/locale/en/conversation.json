@@ -294,6 +294,8 @@
     "ASSIGN_LABEL_SUCCESFUL": "Label assigned successfully",
     "ASSIGN_LABEL_FAILED": "Label assignment failed",
     "CHANGE_TEAM": "Conversation team changed",
+    "ASSIGN_SLA": "SLA policy assigned",
+    "ASSIGN_SLA_FAILED": "SLA policy assignment failed",
     "SUCCESS_DELETE_CONVERSATION": "Conversation deleted successfully",
     "FAIL_DELETE_CONVERSATION": "Couldn't delete conversation! Try again",
     "FILE_SIZE_LIMIT": "File exceeds the {MAXIMUM_SUPPORTED_FILE_UPLOAD_SIZE} MB attachment limit",
@@ -414,6 +416,10 @@
     "ASSIGNEE_LABEL": "Assigned Agent",
     "SELF_ASSIGN": "Assign to me",
     "TEAM_LABEL": "Assigned Team",
+    "SLA_LABEL": "SLA Policy",
+    "SLA_ASSIGN_PLACEHOLDER": "Assign SLA",
+    "SLA_NO_RESULTS": "No SLA policies found",
+    "SLA_SEARCH_PLACEHOLDER": "Search SLA policies",
     "SELECT": {
       "PLACEHOLDER": "None"
     },
