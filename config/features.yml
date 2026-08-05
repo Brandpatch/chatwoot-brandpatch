@@ -283,6 +283,6 @@
 # Enterprise-licensed `sla` flag (which is reset daily by
 # Internal::ReconcilePlanConfigService for community plan installs).
 - name: custom_sla
-  display_name: SLA
+  display_name: SLA (Brandpatch)
   enabled: false
   column: feature_flags_ext_1
