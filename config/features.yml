@@ -279,3 +279,10 @@
   display_name: Custom Roles
   enabled: true
   column: feature_flags_ext_1
+# [brandpatch] Own reimplementation of SLA, independent from the
+# Enterprise-licensed `sla` flag (which is reset daily by
+# Internal::ReconcilePlanConfigService for community plan installs).
+- name: custom_sla
+  display_name: SLA
+  enabled: false
+  column: feature_flags_ext_1

@@ -58,7 +58,7 @@ export default {
       return ` ${this.selectedResponse.name}`;
     },
     isBehindAPaywall() {
-      return !this.isFeatureEnabledonAccount(this.accountId, 'sla');
+      return !this.isFeatureEnabledonAccount(this.accountId, 'custom_sla'); // [brandpatch]
     },
     isSuperAdmin() {
       return this.currentUser.type === 'SuperAdmin';

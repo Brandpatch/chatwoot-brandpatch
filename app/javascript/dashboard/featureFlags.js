@@ -27,6 +27,7 @@ export const FEATURE_FLAGS = {
   AUDIT_LOGS: 'audit_logs',
   INBOX_VIEW: 'inbox_view',
   SLA: 'sla',
+  CUSTOM_SLA: 'custom_sla', // [brandpatch]
   CHANNEL_EMAIL: 'channel_email',
   CHANNEL_FACEBOOK: 'channel_facebook',
   CHANNEL_WEBSITE: 'channel_website',
