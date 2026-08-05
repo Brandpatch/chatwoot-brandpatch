@@ -589,7 +589,12 @@ function resetAndFetchData() {
 }
 
 function loadMoreConversations() {
-  if (hasCurrentPageEndReached.value || chatListLoading.value) {
+  // [brandpatch] Guards against a race between this infinite-scroll trigger
+  // and the initial tab-change fetch (updateAssigneeTab) when the visible
+  // list is short enough that the scroll sentinel is immediately in view —
+  // without currentPage.value being set, both can fire the very first fetch
+  // for a tab at nearly the same time.
+  if (hasCurrentPageEndReached.value || chatListLoading.value || !currentPage.value) {
     return;
   }
 
