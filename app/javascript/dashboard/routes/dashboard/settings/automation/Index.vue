@@ -110,7 +110,8 @@ const deleteRejectText = computed(
 const deleteMessage = computed(() => ` ${selectedAutomation.value.name}?`);
 
 const isSLAEnabled = computed(() =>
-  getters['accounts/isFeatureEnabledonAccount'].value(accountId.value, 'sla')
+  getters['accounts/isFeatureEnabledonAccount'].value(accountId.value, 'sla') || // [brandpatch]
+  getters['accounts/isFeatureEnabledonAccount'].value(accountId.value, 'custom_sla')
 );
 
 const showDelayDisabledBanner = computed(

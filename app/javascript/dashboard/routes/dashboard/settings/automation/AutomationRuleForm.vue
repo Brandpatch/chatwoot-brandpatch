@@ -222,7 +222,7 @@ const hasAutomationMutated = computed(() => {
 });
 
 const automationActionTypes = computed(() => {
-  const actionTypes = isCloudFeatureEnabled('sla')
+  const actionTypes = (isCloudFeatureEnabled('sla') || isCloudFeatureEnabled('custom_sla')) // [brandpatch]
     ? AUTOMATION_ACTION_TYPES
     : AUTOMATION_ACTION_TYPES.filter(({ key }) => key !== 'add_sla');
 
