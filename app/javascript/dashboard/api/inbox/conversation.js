@@ -141,6 +141,12 @@ class ConversationApi extends ApiClient {
   delete(conversationId) {
     return axios.delete(`${this.url}/${conversationId}`);
   }
+
+  updateSla({ conversationId, slaPolicyId }) {
+    return axios.patch(`${this.url}/${conversationId}`, {
+      sla_policy_id: slaPolicyId,
+    });
+  }
 }
 
 export default new ConversationApi();

@@ -10,6 +10,7 @@ import { CONVERSATION_PRIORITY } from '../../../../shared/constants/messages';
 import { CONVERSATION_EVENTS } from '../../../helper/AnalyticsHelper/events';
 import { useTrack } from 'dashboard/composables';
 import NextButton from 'dashboard/components-next/button/Button.vue';
+import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 
 export default {
   components: {
@@ -61,12 +62,30 @@ export default {
       ],
     };
   },
+  mounted() {
+    if (this.isCustomSlaEnabled && !this.slaPolicies.length) {
+      this.$store.dispatch('sla/get');
+    }
+  },
   computed: {
     ...mapGetters({
       currentChat: 'getSelectedChat',
       currentUser: 'getCurrentUser',
       teams: 'teams/getTeams',
+      isFeatureEnabledonAccount: 'accounts/isFeatureEnabledonAccount',
+      accountId: 'getCurrentAccountId',
+      slaPolicies: 'sla/getSLA',
     }),
+    isCustomSlaEnabled() {
+      return (
+        this.isFeatureEnabledonAccount(this.accountId, FEATURE_FLAGS.CUSTOM_SLA) ||
+        this.isFeatureEnabledonAccount(this.accountId, FEATURE_FLAGS.SLA)
+      );
+    },
+    currentSlaPolicy() {
+      if (!this.currentChat?.sla_policy_id) return null;
+      return this.slaPolicies.find(p => p.id === this.currentChat.sla_policy_id) || null;
+    },
     hasAnAssignedTeam() {
       return !!this.currentChat?.meta?.team;
     },
@@ -223,6 +242,20 @@ export default {
         ? this.priorityOptions[0]
         : selectedPriorityItem;
     },
+
+    onClickAssignSla(slaPolicy) {
+      this.$store
+        .dispatch('assignSla', {
+          conversationId: this.currentChat.id,
+          slaPolicyId: slaPolicy.id,
+        })
+        .then(() => {
+          useAlert(this.$t('CONVERSATION.ASSIGN_SLA'));
+        })
+        .catch(() => {
+          useAlert(this.$t('CONVERSATION.ASSIGN_SLA_FAILED'));
+        });
+    },
   },
 };
 </script>
@@ -296,6 +329,25 @@ export default {
           $t('CONVERSATION.PRIORITY.CHANGE_PRIORITY.INPUT_PLACEHOLDER')
         "
         @select="onClickAssignPriority"
+      />
+    </div>
+    <div v-if="isCustomSlaEnabled">
+      <ContactDetailsItem compact :title="$t('CONVERSATION_SIDEBAR.SLA_LABEL')" />
+      <div
+        v-if="currentSlaPolicy"
+        class="px-2 py-1.5 text-sm text-n-slate-11"
+      >
+        {{ currentSlaPolicy.name }}
+      </div>
+      <MultiselectDropdown
+        v-else
+        :options="slaPolicies"
+        :selected-item="null"
+        :multiselector-title="$t('CONVERSATION_SIDEBAR.SLA_LABEL')"
+        :multiselector-placeholder="$t('CONVERSATION_SIDEBAR.SLA_ASSIGN_PLACEHOLDER')"
+        :no-search-result="$t('CONVERSATION_SIDEBAR.SLA_NO_RESULTS')"
+        :input-placeholder="$t('CONVERSATION_SIDEBAR.SLA_SEARCH_PLACEHOLDER')"
+        @select="onClickAssignSla"
       />
     </div>
     <ContactDetailsItem
