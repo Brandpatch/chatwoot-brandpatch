@@ -38,7 +38,8 @@ export default {
       return !!('Notification' in window);
     },
     isSLAEnabled() {
-      return this.isFeatureEnabledonAccount(this.accountId, FEATURE_FLAGS.SLA);
+      return this.isFeatureEnabledonAccount(this.accountId, FEATURE_FLAGS.SLA) || // [brandpatch]
+        this.isFeatureEnabledonAccount(this.accountId, FEATURE_FLAGS.CUSTOM_SLA);
     },
     filteredNotificationTypes() {
       return this.notificationTypes.filter(notification =>

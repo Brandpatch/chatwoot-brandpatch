@@ -495,7 +495,7 @@ const actions = {
         customAttributes: custom_attributes,
       });
     } catch (error) {
-      // Handle error
+      throw new Error(error);
     }
   },
 
@@ -533,6 +533,11 @@ const actions = {
 
   setCurrentChatPriority({ commit }, { priority, conversationId }) {
     commit(types.ASSIGN_PRIORITY, { priority, conversationId });
+  },
+
+  assignSla: async ({ dispatch }, { conversationId, slaPolicyId }) => {
+    const { data } = await ConversationApi.updateSla({ conversationId, slaPolicyId });
+    dispatch('updateConversation', data);
   },
 
   setContextMenuChatId({ commit }, chatId) {

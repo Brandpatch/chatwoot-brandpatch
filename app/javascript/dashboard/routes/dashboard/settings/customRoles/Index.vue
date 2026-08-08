@@ -53,7 +53,7 @@ const currentAccountId = useMapGetter('getCurrentAccountId');
 const isBehindAPaywall = computed(() => {
   return !isFeatureEnabledOnAccount.value(
     currentAccountId.value,
-    'custom_roles'
+    'custom_roles_brandpatch'
   );
 });
 

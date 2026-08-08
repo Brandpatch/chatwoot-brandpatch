@@ -66,7 +66,8 @@ Rails.application.routes.draw do
             resources :assistants do
               member do
                 post :playground
-                get :stats
+                get :metrics
+                get :faq_stats
                 get :summary
                 get :drilldown
               end
@@ -76,7 +77,12 @@ Rails.application.routes.draw do
               resources :inboxes, only: [:index, :create, :destroy], param: :inbox_id
               resources :scenarios
             end
+            resources :agent_sessions, only: [:show]
             resources :assistant_responses
+            resources :faq_suggestions, only: [:index, :show, :update] do
+              post :approve, on: :member
+              post :dismiss, on: :member
+            end
             resources :message_reports, only: [:create]
             resources :bulk_actions, only: [:create]
             resources :copilot_threads, only: [:index, :create] do
@@ -167,6 +173,7 @@ Rails.application.routes.draw do
               post :update_last_seen
               post :unread
               post :custom_attributes
+              post :destroy_custom_attributes
               get :attachments
               get :inbox_assistant
               get :reporting_events if ChatwootApp.enterprise?
@@ -228,6 +235,7 @@ Rails.application.routes.draw do
             end
             member do
               post :start
+              post :retry, action: :retry_import
               post :abandon
               get :error_logs
               get :skip_logs
@@ -267,13 +275,16 @@ Rails.application.routes.draw do
 
           resources :custom_attribute_definitions, only: [:index, :show, :create, :update, :destroy]
           resources :custom_filters, only: [:index, :show, :create, :update, :destroy]
+          resource :branded_email_layout, only: [:show, :update]
           resources :inboxes, only: [:index, :show, :create, :update, :destroy] do
             get :assignable_agents, on: :member
             get :campaigns, on: :member
             get :agent_bot, on: :member
+            get :message_templates, on: :member
             post :set_agent_bot, on: :member
             delete :avatar, on: :member
             post :sync_templates, on: :member
+            put :whatsapp_business_management_token, on: :member
             get :health, on: :member
             post :register_webhook, on: :member
             post :reset_secret, on: :member
@@ -555,6 +566,26 @@ Rails.application.routes.draw do
 
       post 'webhooks/stripe', to: 'webhooks/stripe#process_payload'
       post 'webhooks/firecrawl', to: 'webhooks/firecrawl#process_payload'
+    end
+  end
+
+  # ----------------------------------------------------------------------
+  # [brandpatch] Routes for our own custom (non-Enterprise) feature builds.
+  # Mounted under a separate /custom prefix so it never collides with the
+  # unconditional `resources :custom_roles` route defined above, which still
+  # points at the Enterprise-licensed controller and is intentionally left
+  # untouched and unused.
+  if ChatwootApp.custom?
+    namespace :custom, defaults: { format: 'json' } do
+      namespace :api do
+        namespace :v1 do
+          resources :accounts do
+            scope module: :accounts do
+              resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
+            end
+          end
+        end
+      end
     end
   end
 

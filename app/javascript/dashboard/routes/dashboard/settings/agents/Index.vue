@@ -56,10 +56,10 @@ onMounted(() => {
 });
 
 const findCustomRole = agent =>
-  customRoles.value.find(role => role.id === agent.custom_role_id);
+  customRoles.value.find(role => role.id === agent.brandpatch_custom_role_id);
 
 const getAgentRoleName = agent => {
-  if (!agent.custom_role_id) {
+  if (!agent.brandpatch_custom_role_id) {
     return t(`AGENT_MGMT.AGENT_TYPES.${agent.role.toUpperCase()}`);
   }
   const customRole = findCustomRole(agent);
@@ -67,7 +67,7 @@ const getAgentRoleName = agent => {
 };
 
 const getAgentRolePermissions = agent => {
-  if (!agent.custom_role_id) {
+  if (!agent.brandpatch_custom_role_id) {
     return [];
   }
   const customRole = findCustomRole(agent);
@@ -208,14 +208,16 @@ const confirmDeletion = () => {
                   class="block w-fit text-body-main text-n-slate-11 relative"
                   :class="{
                     'hover:text-n-slate-12 group cursor-pointer':
-                      agent.custom_role_id,
+                      agent.brandpatch_custom_role_id,
                   }"
                 >
                   {{ getAgentRoleName(agent) }}
 
                   <div
                     class="absolute ltr:left-0 rtl:right-0 z-10 hidden w-[300px] bg-n-alpha-3 backdrop-blur-[100px] rounded-xl outline outline-1 outline-n-container shadow-lg top-14 md:top-12"
-                    :class="{ 'group-hover:block': agent.custom_role_id }"
+                    :class="{
+                      'group-hover:block': agent.brandpatch_custom_role_id,
+                    }"
                   >
                     <div class="flex flex-col gap-1 p-4">
                       <span class="text-heading-3 text-n-slate-12">
@@ -290,7 +292,7 @@ const confirmDeletion = () => {
         :type="currentAgent.role"
         :email="currentAgent.email"
         :availability="currentAgent.availability_status"
-        :custom-role-id="currentAgent.custom_role_id"
+        :custom-role-id="currentAgent.brandpatch_custom_role_id"
         @close="hideEditPopup"
       />
     </woot-modal>

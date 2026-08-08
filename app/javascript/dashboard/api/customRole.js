@@ -2,7 +2,7 @@ import ApiClient from './ApiClient';
 
 class CustomRole extends ApiClient {
   constructor() {
-    super('custom_roles', { accountScoped: true });
+    super('custom_roles', { accountScoped: true, custom: true });
   }
 }
 
