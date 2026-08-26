@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/custom-voice-twilio
 
 jobs:
   build-and-push:
