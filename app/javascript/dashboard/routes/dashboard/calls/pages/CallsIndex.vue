@@ -41,10 +41,15 @@ const voiceInboxes = computed(() => inboxes.value.filter(isVoiceCallEnabled));
 
 const isVoiceEnabled = computed(
   () =>
-    isFeatureEnabledonAccount.value(
+    (isFeatureEnabledonAccount.value(
       accountId.value,
       FEATURE_FLAGS.CHANNEL_VOICE
-    ) && voiceInboxes.value.length > 0
+    ) ||
+      isFeatureEnabledonAccount.value(
+        accountId.value,
+        FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH
+      )) &&
+    voiceInboxes.value.length > 0
 );
 
 const calls = computed(() => callHistoryStore.records);
