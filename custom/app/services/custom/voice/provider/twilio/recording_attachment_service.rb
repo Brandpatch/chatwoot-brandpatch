@@ -7,6 +7,7 @@ module Custom
         class RecordingAttachmentService
           DEFAULT_FILENAME_EXTENSION = 'wav'.freeze
           ALLOWED_CONTENT_TYPE_PREFIXES = %w[audio/].freeze
+          TWILIO_API_HOST_PATTERN = /\Aapi(?:\.[a-z0-9-]+){0,2}\.twilio\.com\z/i
 
           pattr_initialize [:call!, :recording_sid!, :recording_url!, { recording_duration: nil }]
 
@@ -16,7 +17,7 @@ module Custom
 
             SafeFetch.fetch(
               recording_url,
-              http_basic_authentication: [account_sid, auth_token],
+              http_basic_authentication: (twilio_api_url? ? [account_sid, auth_token] : nil),
               allowed_content_type_prefixes: ALLOWED_CONTENT_TYPE_PREFIXES
             ) do |result|
               persist_recording!(result)
@@ -69,6 +70,13 @@ module Custom
 
           def recording_content_type(result)
             result.content_type.presence || 'audio/wav'
+          end
+
+          def twilio_api_url?
+            uri = URI.parse(recording_url)
+            uri.is_a?(URI::HTTPS) && uri.host&.match?(TWILIO_API_HOST_PATTERN)
+          rescue URI::InvalidURIError
+            false
           end
 
           def account_sid

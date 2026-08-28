@@ -12,6 +12,7 @@ module Custom
 
       skip_before_action :verify_authenticity_token, raise: false
       before_action :set_inbox!
+      before_action :verify_twilio_signature!
 
       def status
         Custom::Voice::StatusUpdateService.new(
@@ -190,6 +191,12 @@ module Custom
         return if call.twilio_conference_sid == sid
 
         call.update!(twilio_conference_sid: sid)
+      end
+
+      def verify_twilio_signature!
+        signature = request.headers['X-Twilio-Signature'].to_s
+        validator = ::Twilio::Security::RequestValidator.new(inbox_channel.auth_token)
+        head :forbidden unless validator.validate(request.original_url, request.POST, signature)
       end
 
       def set_inbox!
