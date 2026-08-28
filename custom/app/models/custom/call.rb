@@ -19,7 +19,7 @@ module Custom
     belongs_to :inbox
     belongs_to :conversation
     belongs_to :contact
-    belongs_to :message, optional: true, inverse_of: :call
+    belongs_to :message, class_name: '::Message', optional: true, inverse_of: :custom_call
     belongs_to :accepted_by_agent, class_name: 'User', optional: true
 
     has_one_attached :recording
