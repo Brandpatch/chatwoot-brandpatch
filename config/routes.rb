@@ -596,11 +596,25 @@ Rails.application.routes.draw do
           resources :accounts do
             scope module: :accounts do
               resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
+              resources :calls, only: [:index], controller: 'calls'
+              resources :inboxes, only: [] do
+                resource :conference, only: %i[create destroy], controller: 'conference' do
+                  get :token, on: :member
+                end
+              end
+              resources :contacts, only: [] do
+                post :call, on: :member, to: 'contacts/calls#create'
+              end
             end
           end
         end
       end
     end
+
+    post '/twilio/voice/custom/call/:phone',              to: 'custom/twilio/voice#call_twiml',        as: :custom_twilio_voice_call
+    post '/twilio/voice/custom/status/:phone',            to: 'custom/twilio/voice#status',            as: :custom_twilio_voice_status
+    post '/twilio/voice/custom/conference_status/:phone', to: 'custom/twilio/voice#conference_status', as: :custom_twilio_voice_conference_status
+    post '/twilio/voice/custom/recording_status/:phone',  to: 'custom/twilio/voice#recording_status',  as: :custom_twilio_voice_recording_status
   end
 
   # ----------------------------------------------------------------------
