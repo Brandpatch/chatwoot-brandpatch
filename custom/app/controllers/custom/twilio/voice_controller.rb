@@ -195,7 +195,7 @@ module Custom
       def set_inbox!
         digits = params[:phone].to_s.gsub(/\D/, '')
         phone_number = "+#{digits}"
-        channel = Channel::TwilioSms.find_by!(phone_number: phone_number)
+        channel = ::Channel::TwilioSms.find_by!(phone_number: phone_number)
         raise ActiveRecord::RecordNotFound, "Voice not enabled for #{phone_number}" unless channel.voice_enabled?
 
         @inbox = channel.inbox
