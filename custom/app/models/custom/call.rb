@@ -21,6 +21,7 @@ module Custom
     belongs_to :contact
     belongs_to :message, class_name: '::Message', optional: true, inverse_of: :custom_call
     belongs_to :accepted_by_agent, class_name: 'User', optional: true
+    belongs_to :current_ring_agent, class_name: 'User', optional: true
 
     has_one_attached :recording
 
