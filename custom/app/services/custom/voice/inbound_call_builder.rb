@@ -22,15 +22,19 @@ module Custom
         existing = find_existing_call
         return existing if existing
 
-        ActiveRecord::Base.transaction do
+        call = ActiveRecord::Base.transaction do
           contact_inbox = ensure_contact_inbox!
           contact = contact_inbox.contact
           conversation = resolve_conversation!(contact, contact_inbox)
           call = create_call!(contact, conversation)
+          assign_initial_ring_agent!(call)
           message = Custom::Voice::CallMessageBuilder.new(call).perform!
           call.update!(message_id: message.id)
           call
         end
+
+        schedule_or_broadcast_unassigned!(call)
+        call
       rescue ActiveRecord::RecordNotUnique
         find_existing_call || raise
       end
@@ -82,6 +86,28 @@ module Custom
         )
         call.update!(conference_sid: call.default_conference_sid) if call.twilio?
         call
+      end
+
+      def assign_initial_ring_agent!(call)
+        agent = Custom::Voice::CallRouter.new(inbox: inbox).next_agent
+        return unless agent
+
+        call.update!(
+          current_ring_agent_id: agent.id,
+          meta: call.meta.merge('rang_agent_ids' => [agent.id])
+        )
+      end
+
+      def schedule_or_broadcast_unassigned!(call)
+        agent_id = call.current_ring_agent_id
+
+        if agent_id
+          Custom::Voice::CallRingTimeoutJob
+            .set(wait: inbox.channel.ring_timeout_seconds.seconds)
+            .perform_later(call.id, agent_id)
+        else
+          call.broadcast_voice_call_event(:unassigned)
+        end
       end
     end
   end
