@@ -67,4 +67,5 @@ jobs:
             docker compose pull rails sidekiq
             docker compose up -d
             docker compose exec -T rails bundle exec rails db:migrate
+            docker image prune -af
             docker logout ghcr.io
