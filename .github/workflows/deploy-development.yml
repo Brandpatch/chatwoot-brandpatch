@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/custom-call-routing
 
 jobs:
   build-and-push:
