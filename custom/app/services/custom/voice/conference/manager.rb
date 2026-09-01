@@ -16,6 +16,7 @@ module Custom
             join_agent! if agent_participant?
           when 'leave'
             handle_leave!
+            assign_waiting_calls! if agent_participant?
           when 'end'
             finalize!
           end
@@ -103,6 +104,44 @@ module Custom
 
         def now
           Time.zone.now.to_i
+        end
+
+        def assign_waiting_calls!
+          call.reload
+          return unless call.terminal?
+
+          Custom::Call
+            .where(inbox_id: call.inbox_id, status: 'ringing', current_ring_agent_id: nil)
+            .where.not(id: call.id)
+            .order(created_at: :asc)
+            .each { |waiting| assign_waiting_call!(waiting) }
+        end
+
+        def assign_waiting_call!(waiting)
+          rang_ids = Array(waiting.meta['rang_agent_ids']).map(&:to_i)
+          agent = Custom::Voice::CallRouter.new(inbox: waiting.inbox, exclude_agent_ids: rang_ids).next_agent
+          return unless agent
+
+          assigned = false
+          waiting.with_lock do
+            next unless waiting.status == 'ringing' && waiting.current_ring_agent_id.nil?
+
+            waiting.update!(
+              current_ring_agent_id: agent.id,
+              meta: waiting.meta.merge('rang_agent_ids' => rang_ids | [agent.id])
+            )
+            assigned = true
+          end
+
+          return unless assigned
+
+          waiting.broadcast_voice_call_event(:ring_reassigned,
+                                             previous_agent_id: nil,
+                                             current_ring_agent_id: agent.id)
+
+          Custom::Voice::CallRingTimeoutJob
+            .set(wait: waiting.inbox.channel.ring_timeout_seconds.seconds)
+            .perform_later(waiting.id, agent.id)
         end
       end
     end
