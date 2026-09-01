@@ -11,9 +11,17 @@ module Custom
         v.positive? ? v : RING_TIMEOUT_DEFAULT
       end
 
+      def ring_timeout_seconds=(value)
+        self.provider_config = (provider_config || {}).merge('ring_timeout_seconds' => value.to_i)
+      end
+
       def max_wait_seconds
         v = provider_config['max_wait_seconds'].to_i
         v.positive? ? v : MAX_WAIT_DEFAULT
+      end
+
+      def max_wait_seconds=(value)
+        self.provider_config = (provider_config || {}).merge('max_wait_seconds' => value.to_i)
       end
 
       def voice_call_webhook_url
