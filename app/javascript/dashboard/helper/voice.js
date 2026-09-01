@@ -4,6 +4,7 @@ import {
 } from 'dashboard/components-next/message/constants';
 import { MESSAGE_TYPE } from 'shared/constants/messages';
 import { useCallsStore } from 'dashboard/stores/calls';
+import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import types from 'dashboard/store/mutation-types';
 
 export const TERMINAL_STATUSES = [
@@ -66,12 +67,19 @@ const shouldShowCall = ({
   senderId,
   assigneeId,
   currentUserId,
+  currentRingAgentId,
+  provider,
 }) => {
   if (shouldSkipCall(callDirection, senderId, currentUserId)) return false;
   // Outbound calls are scoped to the initiator via shouldSkipCall; the
   // conversation may be auto-assigned to a different agent on creation, so
   // skip the assignee filter for outbound to avoid hiding the caller's own widget.
   if (callDirection === 'outbound') return true;
+  // Twilio inbound calls use explicit ring routing: only the assigned agent rings.
+  // currentRingAgentId=null means unassigned (no agents available) — no one rings.
+  if (provider === VOICE_CALL_PROVIDERS.TWILIO) {
+    return currentRingAgentId === currentUserId;
+  }
   return !isAssignedToAnotherAgent(assigneeId, currentUserId);
 };
 
@@ -115,6 +123,7 @@ function extractCallData(message) {
     assigneeId: extractAssigneeId(message?.conversation),
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
+    currentRingAgentId: call.current_ring_agent_id ?? null,
   };
 }
 
@@ -135,6 +144,7 @@ export function handleVoiceCallCreated(
     inboxId,
     assigneeId,
     senderId,
+    currentRingAgentId,
   } = extractCallData(message);
 
   if (callSid && dismissedCallSids.has(callSid)) return;
@@ -150,6 +160,8 @@ export function handleVoiceCallCreated(
       senderId,
       assigneeId,
       currentUserId,
+      currentRingAgentId,
+      provider,
     })
   ) {
     return;
@@ -188,6 +200,7 @@ export function handleVoiceCallUpdated(
     inboxId,
     assigneeId,
     senderId,
+    currentRingAgentId,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -210,6 +223,8 @@ export function handleVoiceCallUpdated(
       senderId,
       assigneeId,
       currentUserId,
+      currentRingAgentId,
+      provider,
     })
   ) {
     callsStore.removeCall(callSid);

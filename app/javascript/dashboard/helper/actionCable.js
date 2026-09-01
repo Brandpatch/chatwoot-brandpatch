@@ -66,6 +66,8 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.outbound_connected': this.onVoiceCallOutboundConnected,
       'voice_call.outbound_accepted': this.onVoiceCallOutboundAccepted,
       'voice_call.ended': this.onVoiceCallEnded,
+      'voice_call.ring_reassigned': this.onVoiceCallRingReassigned,
+      'voice_call.unassigned': this.onVoiceCallUnassigned,
     };
   }
 
@@ -456,6 +458,36 @@ class ActionCableConnector extends BaseActionCableConnector {
         /* noop */
       }
     }
+    useCallsStore().removeCall(data.call_id);
+  };
+
+  onVoiceCallRingReassigned = data => {
+    const currentUserId = this.app.$store.getters.getCurrentUser?.id;
+    const callsStore = useCallsStore();
+
+    if (data.previous_agent_id === currentUserId) {
+      callsStore.removeCall(data.call_id);
+    }
+
+    if (data.current_ring_agent_id === currentUserId) {
+      const availability = this.app.$store.getters.getCurrentUserAvailability;
+      if (availability !== 'online') return;
+
+      callsStore.addCall({
+        callSid: data.call_id,
+        callId: data.id,
+        provider: data.provider,
+        conversationId: data.conversation_id,
+        inboxId: data.inbox_id,
+        callDirection: VOICE_CALL_DIRECTION.INBOUND,
+        senderId: null,
+        caller: null,
+      });
+    }
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallUnassigned = data => {
     useCallsStore().removeCall(data.call_id);
   };
 }

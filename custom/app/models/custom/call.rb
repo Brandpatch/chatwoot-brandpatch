@@ -66,6 +66,7 @@ module Custom
         event: "voice_call.#{event}",
         data: { id: id, call_id: provider_call_id, provider: provider,
                 conversation_id: conversation_id, account_id: account_id,
+                inbox_id: inbox_id,
                 current_ring_agent_id: current_ring_agent_id }.merge(extra)
       }
       ActionCable.server.broadcast("account_#{account_id}", payload)
