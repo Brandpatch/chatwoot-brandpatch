@@ -65,7 +65,8 @@ module Custom
       payload = {
         event: "voice_call.#{event}",
         data: { id: id, call_id: provider_call_id, provider: provider,
-                conversation_id: conversation_id, account_id: account_id }.merge(extra)
+                conversation_id: conversation_id, account_id: account_id,
+                current_ring_agent_id: current_ring_agent_id }.merge(extra)
       }
       ActionCable.server.broadcast("account_#{account_id}", payload)
     end
@@ -91,6 +92,7 @@ module Custom
         conference_sid: conference_sid,
         accepted_by_agent_id: accepted_by_agent_id,
         accepted_by_agent_name: accepted_by_agent&.available_name,
+        current_ring_agent_id: current_ring_agent_id,
         started_at: started_at&.to_i,
         ended_at: ended_at,
         from_number: from_number,
