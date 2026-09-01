@@ -3,6 +3,27 @@
 module Custom
   module Channel
     module TwilioSms
+      RING_TIMEOUT_DEFAULT = 30
+      MAX_WAIT_DEFAULT = 300
+
+      def ring_timeout_seconds
+        v = provider_config['ring_timeout_seconds'].to_i
+        v.positive? ? v : RING_TIMEOUT_DEFAULT
+      end
+
+      def ring_timeout_seconds=(value)
+        self.provider_config = (provider_config || {}).merge('ring_timeout_seconds' => value.to_i)
+      end
+
+      def max_wait_seconds
+        v = provider_config['max_wait_seconds'].to_i
+        v.positive? ? v : MAX_WAIT_DEFAULT
+      end
+
+      def max_wait_seconds=(value)
+        self.provider_config = (provider_config || {}).merge('max_wait_seconds' => value.to_i)
+      end
+
       def voice_call_webhook_url
         digits = phone_number.delete_prefix('+')
         Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: digits)

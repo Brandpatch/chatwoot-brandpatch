@@ -22,15 +22,19 @@ module Custom
         existing = find_existing_call
         return existing if existing
 
-        ActiveRecord::Base.transaction do
+        call = ActiveRecord::Base.transaction do
           contact_inbox = ensure_contact_inbox!
           contact = contact_inbox.contact
           conversation = resolve_conversation!(contact, contact_inbox)
           call = create_call!(contact, conversation)
+          assign_initial_ring_agent!(call)
           message = Custom::Voice::CallMessageBuilder.new(call).perform!
           call.update!(message_id: message.id)
           call
         end
+
+        schedule_ring_timeout!(call)
+        call
       rescue ActiveRecord::RecordNotUnique
         find_existing_call || raise
       end
@@ -82,6 +86,27 @@ module Custom
         )
         call.update!(conference_sid: call.default_conference_sid) if call.twilio?
         call
+      end
+
+      def assign_initial_ring_agent!(call)
+        agent = Custom::Voice::CallRouter.new(inbox: inbox).next_agent
+        return unless agent
+
+        call.update!(
+          current_ring_agent_id: agent.id,
+          meta: call.meta.merge('rang_agent_ids' => [agent.id])
+        )
+        call.broadcast_voice_call_event(:ring_reassigned, previous_agent_id: nil)
+      end
+
+      # Always arm the timeout job, even with no agent to ring: the caller waits
+      # until max_wait either way, and only this job expires the call.
+      def schedule_ring_timeout!(call)
+        call.broadcast_voice_call_event(:unassigned) if call.current_ring_agent_id.nil?
+
+        Custom::Voice::CallRingTimeoutJob
+          .set(wait: inbox.channel.ring_timeout_seconds.seconds)
+          .perform_later(call.id, call.current_ring_agent_id)
       end
     end
   end

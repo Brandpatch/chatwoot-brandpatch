@@ -5,6 +5,14 @@ module Custom
     module V1
       module Accounts
         module InboxesController
+          def get_channel_attributes(channel_type)
+            attrs = super
+            if channel_type == 'Channel::TwilioSms' && @inbox&.channel&.medium == 'sms'
+              attrs += [:ring_timeout_seconds, :max_wait_seconds]
+            end
+            attrs
+          end
+
           def create_voice_channel
             unless Current.account.feature_enabled?('channel_voice') ||
                    Current.account.feature_enabled?('channel_voice_brandpatch')
