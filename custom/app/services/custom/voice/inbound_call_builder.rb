@@ -96,6 +96,7 @@ module Custom
           current_ring_agent_id: agent.id,
           meta: call.meta.merge('rang_agent_ids' => [agent.id])
         )
+        call.broadcast_voice_call_event(:ring_reassigned, previous_agent_id: nil)
       end
 
       def schedule_or_broadcast_unassigned!(call)

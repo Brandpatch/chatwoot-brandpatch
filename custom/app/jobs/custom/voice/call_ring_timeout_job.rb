@@ -28,9 +28,10 @@ module Custom
       end
 
       def expire_call!(call)
+        call.update!(current_ring_agent_id: nil)
+        call.broadcast_voice_call_event(:unassigned)
         Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
         Custom::Voice::CallStatus::Manager.new(call: call).process_status_update('no_answer')
-        call.update!(current_ring_agent_id: nil)
       end
 
       def escalate!(call)
@@ -72,6 +73,11 @@ module Custom
         end
 
         call.broadcast_voice_call_event(:unassigned)
+
+        # No agent left to ring, but the caller keeps waiting until max_wait.
+        # Re-arm the job so the max_wait expiry still fires.
+        CallRingTimeoutJob.set(wait: call.inbox.channel.ring_timeout_seconds.seconds)
+                          .perform_later(call.id, nil)
       end
     end
   end
