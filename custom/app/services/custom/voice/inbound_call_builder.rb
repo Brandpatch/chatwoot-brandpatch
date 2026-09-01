@@ -33,7 +33,7 @@ module Custom
           call
         end
 
-        schedule_or_broadcast_unassigned!(call)
+        schedule_ring_timeout!(call)
         call
       rescue ActiveRecord::RecordNotUnique
         find_existing_call || raise
@@ -99,16 +99,14 @@ module Custom
         call.broadcast_voice_call_event(:ring_reassigned, previous_agent_id: nil)
       end
 
-      def schedule_or_broadcast_unassigned!(call)
-        agent_id = call.current_ring_agent_id
+      # Always arm the timeout job, even with no agent to ring: the caller waits
+      # until max_wait either way, and only this job expires the call.
+      def schedule_ring_timeout!(call)
+        call.broadcast_voice_call_event(:unassigned) if call.current_ring_agent_id.nil?
 
-        if agent_id
-          Custom::Voice::CallRingTimeoutJob
-            .set(wait: inbox.channel.ring_timeout_seconds.seconds)
-            .perform_later(call.id, agent_id)
-        else
-          call.broadcast_voice_call_event(:unassigned)
-        end
+        Custom::Voice::CallRingTimeoutJob
+          .set(wait: inbox.channel.ring_timeout_seconds.seconds)
+          .perform_later(call.id, call.current_ring_agent_id)
       end
     end
   end
