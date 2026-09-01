@@ -21,8 +21,15 @@ module Custom
 
       def eligible_agents
         inbox.members
-             .where(availability: :online)
+             .where(id: online_agent_ids)
              .where.not(id: exclude_agent_ids + occupied_agent_ids)
+      end
+
+      # users.availability is vestigial and reads 'online' for everyone; the real
+      # per-account status lives in Redis, same source core round-robin uses.
+      def online_agent_ids
+        statuses = ::OnlineStatusTracker.get_available_users(inbox.account_id)
+        statuses.select { |_id, status| status == 'online' }.keys.map(&:to_i)
       end
 
       def occupied_agent_ids
