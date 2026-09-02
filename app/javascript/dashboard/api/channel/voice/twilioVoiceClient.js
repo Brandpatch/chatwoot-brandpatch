@@ -13,14 +13,6 @@ class TwilioVoiceClient extends EventTarget {
   }
 
   async initializeDevice(inboxId) {
-    // A live connection means this device is already carrying a call. Rebuilding
-    // it would destroy that audio leg silently — no exception, so nothing
-    // upstream notices — leaving the agent's side gone while the caller stays
-    // on the line. Mirrors the guard joinClientCall already has.
-    if (this.initialized && this.inboxId === inboxId && this.activeConnection) {
-      return this.device;
-    }
-
     this.destroyDevice();
 
     const response = await VoiceAPI.getToken(inboxId);
