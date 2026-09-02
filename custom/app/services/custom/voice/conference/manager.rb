@@ -56,8 +56,7 @@ module Custom
 
           return unless claimed
 
-          Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::ANSWERED,
-                                                   agent_id: user_id)
+          Custom::Voice::RingAttemptTracker.record_answer!(call, user_id)
           auto_assign_conversation!(user_id)
         end
 

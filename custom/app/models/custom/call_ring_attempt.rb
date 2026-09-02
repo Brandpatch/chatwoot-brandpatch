@@ -11,10 +11,13 @@ module Custom
     TIMEOUT = 'timeout'
     REJECTED = 'rejected'
     CALLER_HANGUP = 'caller_hangup'
+    # Another agent took the call while this turn was still open, so this agent
+    # never got a real chance at it.
+    SUPERSEDED = 'superseded'
 
-    OUTCOMES = [ANSWERED, TIMEOUT, REJECTED, CALLER_HANGUP].freeze
-    # caller_hangup is deliberately excluded: the caller gave up during this
-    # agent's turn, which is not something to hold against them.
+    OUTCOMES = [ANSWERED, TIMEOUT, REJECTED, CALLER_HANGUP, SUPERSEDED].freeze
+    # caller_hangup and superseded are deliberately excluded: neither outcome
+    # was the agent's to decide, so neither is held against them.
     MISSED_OUTCOMES = [TIMEOUT, REJECTED].freeze
 
     belongs_to :account

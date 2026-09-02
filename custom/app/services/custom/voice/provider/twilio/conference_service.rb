@@ -57,8 +57,7 @@ module Custom
             # browser Device, or a late join after the turn already escalated),
             # which would otherwise leave a real answer unrecorded and let the
             # turn fall through to the terminal catch-all.
-            Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::ANSWERED,
-                                                     agent_id: user.id)
+            Custom::Voice::RingAttemptTracker.record_answer!(call, user.id)
           end
 
           def claimed_by_other_agent?(user)
