@@ -16,7 +16,11 @@ module Custom
         'busy'        => 'no_answer',
         'no-answer'   => 'no_answer',
         'failed'      => 'failed',
-        'canceled'    => 'failed'
+        # Twilio reports canceled when a leg is terminated before it was
+        # answered, which is what hanging up on a ringing call does. Keeping
+        # failed for that would hide real failures (bad number, carrier
+        # rejection) among deliberate cancellations.
+        'canceled'    => 'no_answer'
       }.freeze
 
       def perform
