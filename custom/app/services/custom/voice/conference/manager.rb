@@ -54,7 +54,11 @@ module Custom
             claimed = true
           end
 
-          auto_assign_conversation!(user_id) if claimed
+          return unless claimed
+
+          Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::ANSWERED,
+                                                   agent_id: user_id)
+          auto_assign_conversation!(user_id)
         end
 
         def mark_accepted_broadcast!
@@ -134,6 +138,8 @@ module Custom
           end
 
           return unless assigned
+
+          Custom::Voice::RingAttemptTracker.open!(waiting, agent.id)
 
           waiting.broadcast_voice_call_event(:ring_reassigned,
                                              previous_agent_id: nil,

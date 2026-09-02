@@ -28,6 +28,9 @@ module Custom
       end
 
       def expire_call!(call)
+        # Close before the status update: an agent may still be mid-turn when
+        # max_wait lands, and that turn lapsed on them rather than on the caller.
+        Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::TIMEOUT)
         call.update!(current_ring_agent_id: nil)
         call.broadcast_voice_call_event(:unassigned)
         Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
@@ -57,6 +60,10 @@ module Custom
           )
         end
 
+        Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::TIMEOUT,
+                                                 agent_id: previous_agent_id)
+        Custom::Voice::RingAttemptTracker.open!(call, agent.id)
+
         call.broadcast_voice_call_event(:ring_reassigned,
                                         previous_agent_id: previous_agent_id,
                                         current_ring_agent_id: agent.id)
@@ -72,6 +79,7 @@ module Custom
           call.update!(current_ring_agent_id: nil)
         end
 
+        Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::TIMEOUT)
         call.broadcast_voice_call_event(:unassigned)
 
         # No agent left to ring, but the caller keeps waiting until max_wait.
