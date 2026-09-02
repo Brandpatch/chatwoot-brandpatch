@@ -54,7 +54,10 @@ module Custom
             claimed = true
           end
 
-          auto_assign_conversation!(user_id) if claimed
+          return unless claimed
+
+          Custom::Voice::RingAttemptTracker.record_answer!(call, user_id)
+          auto_assign_conversation!(user_id)
         end
 
         def mark_accepted_broadcast!
@@ -72,7 +75,7 @@ module Custom
           conversation = call.conversation
           return if conversation.assigned_entity.present?
 
-          Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
+          ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
         end
 
         def extract_user_id
@@ -134,6 +137,8 @@ module Custom
           end
 
           return unless assigned
+
+          Custom::Voice::RingAttemptTracker.open!(waiting, agent.id)
 
           waiting.broadcast_voice_call_event(:ring_reassigned,
                                              previous_agent_id: nil,

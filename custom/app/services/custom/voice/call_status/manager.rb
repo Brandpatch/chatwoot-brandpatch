@@ -12,11 +12,20 @@ module Custom
           return if Custom::Call::TERMINAL_STATUSES.include?(call.status)
 
           apply_call_updates!(status, duration: duration, timestamp: timestamp)
+          close_open_ring_attempt! if Custom::Call::TERMINAL_STATUSES.include?(status)
           call.conversation.update!(last_activity_at: Time.zone.now)
           call.message&.touch # rubocop:disable Rails/SkipsModelValidations
         end
 
         private
+
+        # A turn still open when the call ends terminally was cut short by the
+        # caller giving up, not by the agent. Paths where the agent owns the
+        # outcome (answered, rejected, ring timeout) close the turn themselves
+        # before reaching here, and the first close wins.
+        def close_open_ring_attempt!
+          Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::CALLER_HANGUP)
+        end
 
         def apply_call_updates!(status, duration:, timestamp:)
           attrs = { status: status }

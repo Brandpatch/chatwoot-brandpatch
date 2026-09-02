@@ -75,6 +75,8 @@ module Custom
               if call.ringing? && call.accepted_by_agent_id.nil?
                 status = 'rejected'
                 call.update!(end_reason: 'agent_rejected', accepted_by_agent_id: Current.user.id)
+                Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::REJECTED,
+                                                         agent_id: Current.user.id)
               elsif call.in_progress?
                 status = 'completed'
                 call.update!(end_reason: 'agent_hangup')

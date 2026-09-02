@@ -139,14 +139,19 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         return { callId: call.callId };
       }
 
-      const device = await TwilioVoiceClient.initializeDevice(inboxId);
-      if (!device) return null;
-
-      // Set BEFORE the join call lands so the account-wide voice_call.accepted
-      // broadcast — which can arrive back at this same tab before this await
-      // resolves — recognizes this as its own call instead of tearing it down
-      // (mirrors useWhatsappCallSession's activeCallId).
+      // Claim the call before any await: device initialization fetches a token
+      // and registers with Twilio, and an account-wide broadcast arriving in
+      // that window (voice_call.accepted from this same tab, or the
+      // ring_reassigned of an escalation this click just raced) would otherwise
+      // not recognize the call as ours and tear it down mid-join.
+      // Mirrors useWhatsappCallSession's activeCallId.
       markLocalCall(callSid);
+
+      const device = await TwilioVoiceClient.initializeDevice(inboxId);
+      if (!device) {
+        clearLocalCall(callSid);
+        return null;
+      }
 
       const joinResponse = await VoiceAPI.joinConference({
         conversationId,

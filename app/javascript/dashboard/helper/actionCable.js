@@ -465,7 +465,11 @@ class ActionCableConnector extends BaseActionCableConnector {
     const currentUserId = this.app.$store.getters.getCurrentUser?.id;
     const callsStore = useCallsStore();
 
-    if (data.previous_agent_id === currentUserId) {
+    // A join already in flight wins over the escalation that raced it: the
+    // agent's audio is connecting, so tearing the card out would leave them
+    // talking with no way to hang up. Mirrors the same guard in
+    // onVoiceCallAccepted.
+    if (data.previous_agent_id === currentUserId && !isLocalCall(data.call_id)) {
       callsStore.removeCall(data.call_id);
     }
 
