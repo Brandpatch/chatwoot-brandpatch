@@ -76,7 +76,7 @@ module Custom
           conversation = call.conversation
           return if conversation.assigned_entity.present?
 
-          Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
+          ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
         end
 
         def extract_user_id

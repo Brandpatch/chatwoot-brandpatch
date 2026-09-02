@@ -50,7 +50,7 @@ module Custom
             conversation = call.conversation
             return if conversation.assigned_entity.present?
 
-            Conversations::AssignmentService.new(conversation: conversation, assignee_id: user.id).perform
+            ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user.id).perform
           end
         end
       end

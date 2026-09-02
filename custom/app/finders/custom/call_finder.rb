@@ -31,7 +31,7 @@ module Custom
     end
 
     def accessible_conversations
-      Conversations::PermissionFilterService.new(
+      ::Conversations::PermissionFilterService.new(
         @current_account.conversations, @current_user, @current_account
       ).perform.select(:id)
     end
