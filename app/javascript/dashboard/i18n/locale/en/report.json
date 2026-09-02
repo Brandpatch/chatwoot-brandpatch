@@ -545,6 +545,9 @@
       }
     }
   },
+  "VOICE_REPORTS": {
+    "HEADER": "Call Reports"
+  },
   "OVERVIEW_REPORTS": {
     "HEADER": "Overview",
     "LIVE": "Live",
