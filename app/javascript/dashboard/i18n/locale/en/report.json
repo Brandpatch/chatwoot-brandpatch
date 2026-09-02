@@ -546,7 +546,13 @@
     }
   },
   "VOICE_REPORTS": {
-    "HEADER": "Call Reports"
+    "HEADER": "Call Reports",
+    "LOADING": "Loading call figures…",
+    "EMPTY": "No calls in this period.",
+    "TABS": {
+      "AGENT": "By agent",
+      "INBOX": "By inbox"
+    }
   },
   "OVERVIEW_REPORTS": {
     "HEADER": "Overview",
