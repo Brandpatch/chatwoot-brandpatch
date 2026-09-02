@@ -552,6 +552,22 @@
     "TABS": {
       "AGENT": "By agent",
       "INBOX": "By inbox"
+    },
+    "COLUMNS": {
+      "AGENT": "Agent",
+      "INBOX": "Inbox",
+      "ANSWERED": "Answered",
+      "MISSED": "Missed calls",
+      "UNATTENDED": "Unattended calls",
+      "RESPONSE_RATE": "Response rate",
+      "TIME_TO_ANSWER": "Time to answer",
+      "OUTBOUND": "Outbound",
+      "MINUTES": "Minutes",
+      "OUTBOUND_MINUTES": "Outbound minutes",
+      "AVG_OUTBOUND": "Avg. outbound call",
+      "TIME_TO_CAPTURE": "Time to capture",
+      "NOTES": "Notes",
+      "RESOLVED": "Resolved"
     }
   },
   "OVERVIEW_REPORTS": {

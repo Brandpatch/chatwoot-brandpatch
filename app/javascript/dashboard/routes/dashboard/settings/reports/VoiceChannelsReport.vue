@@ -11,6 +11,7 @@ import {
 import WootDatePicker from 'dashboard/components/ui/DatePicker/DatePicker.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import ReportHeader from './components/ReportHeader.vue';
+import VoiceStatsTable from './components/VoiceStatsTable.vue';
 import { useCallStatsStore } from 'dashboard/stores/callStats';
 
 const GROUPINGS = ['agent', 'inbox'];
@@ -112,14 +113,6 @@ onUnmounted(() => callStatsStore.resetStats());
     <div v-if="isFetching" class="py-8 text-sm text-center text-n-slate-11">
       {{ t('VOICE_REPORTS.LOADING') }}
     </div>
-    <div
-      v-else-if="!rows.length"
-      class="py-8 text-sm text-center text-n-slate-11"
-    >
-      {{ t('VOICE_REPORTS.EMPTY') }}
-    </div>
-    <pre v-else class="p-3 overflow-x-auto text-xs rounded bg-n-alpha-2">{{
-      rows
-    }}</pre>
+    <VoiceStatsTable v-else :grouping="grouping" :rows="rows" />
   </div>
 </template>
