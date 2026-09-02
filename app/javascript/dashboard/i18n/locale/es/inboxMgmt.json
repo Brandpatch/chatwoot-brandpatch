@@ -675,6 +675,16 @@
       "INBOUND": {
         "LABEL": "Permitir llamadas entrantes",
         "DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación. Los agentes todavía pueden realizar llamadas salientes."
+      },
+      "RING_TIMEOUT": {
+        "LABEL": "Tiempo de timbre por agente (segundos)",
+        "DESCRIPTION": "Cuánto suena la llamada en cada agente antes de pasar al siguiente agente disponible. Por defecto: 30 segundos.",
+        "PLACEHOLDER": "30"
+      },
+      "MAX_WAIT": {
+        "LABEL": "Tiempo máximo de espera (segundos)",
+        "DESCRIPTION": "Tiempo máximo que quien llama espera en la cola antes de que la llamada se marque como perdida. Por defecto: 300 segundos (5 minutos).",
+        "PLACEHOLDER": "300"
       }
     },
     "WHATSAPP_CALLING": {
