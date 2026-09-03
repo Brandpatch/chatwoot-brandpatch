@@ -11,10 +11,13 @@ module Custom
     class CallStatsBuilder
       GROUPINGS = %i[agent inbox].freeze
 
-      # status alone does not mean an agent spoke: a caller who joins the
-      # conference and hangs up before anyone picks up still lands on
-      # 'completed'. Only accepted_by_agent_id tells us a call was answered.
-      ANSWERED_SQL = 'accepted_by_agent_id IS NOT NULL'
+      # Neither column alone identifies a call an agent actually spoke on. A
+      # caller who joins the conference and hangs up before anyone picks up
+      # lands on 'completed' with no agent, and finalize_call! stamps
+      # accepted_by_agent_id when an agent declines — so going by that column
+      # alone credits a rejection as an answer, while the same turn is already
+      # counted against the agent as missed.
+      ANSWERED_SQL = "calls.accepted_by_agent_id IS NOT NULL AND calls.status <> 'rejected'"
 
       TIME_TO_ANSWER_SQL = Arel.sql('EXTRACT(EPOCH FROM (ended_at - rang_at))')
       TIME_TO_CAPTURE_SQL = Arel.sql(
@@ -57,6 +60,17 @@ module Custom
         @call_conversation_ids ||= calls.select(:conversation_id)
       end
 
+      # Every inbound call that ended with no agent on it: the ones that timed
+      # out, the ones an agent declined, and the ones where the caller gave up
+      # after entering the conference. Taken as the complement of answered so
+      # the two columns always account for every call the inbox received,
+      # including whatever status the provider invents next.
+      def unattended_calls
+        calls.incoming
+             .where(status: Custom::Call::TERMINAL_STATUSES)
+             .where.not(ANSWERED_SQL)
+      end
+
       # Message carries a default order, which Postgres rejects once these are
       # grouped since the ordered column is not in the GROUP BY.
       def private_notes
@@ -90,6 +104,10 @@ module Custom
           {
             id: id,
             name: agent.available_name,
+            email: agent.email,
+            # Availability is deliberately left out: it describes the agent
+            # right now, which says nothing about a period that already closed.
+            thumbnail: agent.avatar_url,
             calls_answered: answered[id].to_i,
             outbound_calls: outbound[id].to_i,
             missed_calls: missed,
@@ -120,7 +138,7 @@ module Custom
 
       def rows_by_inbox
         answered = calls.incoming.where(ANSWERED_SQL).group(:inbox_id).count
-        unattended = calls.incoming.where(status: 'no_answer').group(:inbox_id).count
+        unattended = unattended_calls.group(:inbox_id).count
         outbound = calls.outgoing.group(:inbox_id).count
         minutes = calls.where(ANSWERED_SQL).group(:inbox_id).sum(:duration_seconds)
         outbound_minutes = calls.outgoing.group(:inbox_id).sum(:duration_seconds)
