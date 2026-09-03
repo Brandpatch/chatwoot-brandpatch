@@ -13,6 +13,7 @@ import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import ReportHeader from './components/ReportHeader.vue';
 import VoiceStatsTable from './components/VoiceStatsTable.vue';
 import VoiceMetricCards from './components/VoiceMetricCards.vue';
+import MetricCard from './components/overview/MetricCard.vue';
 import { useCallStatsStore } from 'dashboard/stores/callStats';
 
 const GROUPINGS = ['agent', 'inbox'];
@@ -119,12 +120,16 @@ onUnmounted(() => callStatsStore.resetStats());
     <template v-else>
       <VoiceMetricCards :totals="totals" />
 
-      <section v-for="key in SECTIONS" :key="key" class="flex flex-col gap-2">
-        <h3 class="text-base font-medium text-n-slate-12">
-          {{ t(`VOICE_REPORTS.SECTIONS.${key.toUpperCase()}`) }}
-        </h3>
+      <!-- The header slot is overridden because MetricCard's default one
+           carries a "live" badge, and these figures are historical. -->
+      <MetricCard v-for="key in SECTIONS" :key="key">
+        <template #header>
+          <h5 class="mb-0 text-lg font-medium text-n-slate-12">
+            {{ t(`VOICE_REPORTS.SECTIONS.${key.toUpperCase()}`) }}
+          </h5>
+        </template>
         <VoiceStatsTable :grouping="grouping" :rows="rows" :section="key" />
-      </section>
+      </MetricCard>
     </template>
   </div>
 </template>

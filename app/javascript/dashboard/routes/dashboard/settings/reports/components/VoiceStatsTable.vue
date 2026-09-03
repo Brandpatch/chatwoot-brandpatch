@@ -152,9 +152,22 @@ const columns = computed(() => {
   return [nameColumn, ...metrics];
 });
 
-const tableData = computed(() =>
-  props.rows.map(row => ({ ...row, agent: row.name }))
-);
+// A row whose every metric in this section is empty has nothing to say here,
+// so it is left out rather than shown as a line of dashes. That is the
+// unassigned row in the sections it carries no figures for. Zeros are not
+// empty: an agent who answered nothing still belongs in the table, and that
+// zero is the point.
+const tableData = computed(() => {
+  const keys = SECTION_COLUMNS[props.section][props.grouping].map(
+    ([key]) => key
+  );
+
+  return props.rows
+    .filter(row =>
+      keys.some(key => row[key] !== null && row[key] !== undefined)
+    )
+    .map(row => ({ ...row, agent: row.name }));
+});
 
 const table = useVueTable({
   get data() {
@@ -178,13 +191,13 @@ const table = useVueTable({
     <!-- Three sections share the page, so the pager only earns its space once
          a list is actually longer than a page. -->
     <Pagination
-      v-if="rows.length > getPageSize()"
+      v-if="tableData.length > getPageSize()"
       class="mt-2"
       :table="table"
       show-page-size-selector
       :default-page-size="getPageSize()"
       @page-size-change="handlePageSizeChange"
     />
-    <EmptyState v-if="!rows.length" :title="t('VOICE_REPORTS.EMPTY')" />
+    <EmptyState v-if="!tableData.length" :title="t('VOICE_REPORTS.EMPTY')" />
   </div>
 </template>
