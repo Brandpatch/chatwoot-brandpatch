@@ -188,11 +188,17 @@ module Custom
       # Agents who can take calls on the inboxes in scope, so someone who
       # answered nothing in the period still shows up as a row of zeros —
       # that absence is what a supervisor is looking for.
+      #
+      # Read through inboxes, which is scoped to the account, rather than from
+      # the requested inbox_id directly: inbox_members carries no account_id,
+      # so a raw id would return whoever belongs to that inbox whatever tenant
+      # it is in, and this roster holds names and emails.
+      #
       # Selected through a subquery rather than a join with DISTINCT: users
       # carries json columns, which Postgres cannot compare for equality.
       def agents
         @agents ||= ::User.where(
-          id: ::InboxMember.where(inbox_id: inbox_id.presence || inbox_ids).select(:user_id)
+          id: ::InboxMember.where(inbox_id: inboxes.select(:id)).select(:user_id)
         ).order(:name)
       end
 
