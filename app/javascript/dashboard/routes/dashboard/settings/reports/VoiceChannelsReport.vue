@@ -12,9 +12,11 @@ import WootDatePicker from 'dashboard/components/ui/DatePicker/DatePicker.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import ReportHeader from './components/ReportHeader.vue';
 import VoiceStatsTable from './components/VoiceStatsTable.vue';
+import VoiceMetricCards from './components/VoiceMetricCards.vue';
 import { useCallStatsStore } from 'dashboard/stores/callStats';
 
 const GROUPINGS = ['agent', 'inbox'];
+const SECTIONS = ['attention', 'outbound', 'conversations'];
 const DEFAULT_DAYS_BACK = 6;
 
 const { t } = useI18n();
@@ -37,6 +39,7 @@ const to = computed(() => getUnixEndOfDay(dateRange.value[1]));
 const grouping = computed(() => GROUPINGS[activeIndex.value]);
 
 const rows = computed(() => callStatsStore.rows);
+const totals = computed(() => callStatsStore.totals);
 const isFetching = computed(() => callStatsStore.uiFlags.isFetching);
 
 const tabs = computed(() =>
@@ -113,6 +116,15 @@ onUnmounted(() => callStatsStore.resetStats());
     <div v-if="isFetching" class="py-8 text-sm text-center text-n-slate-11">
       {{ t('VOICE_REPORTS.LOADING') }}
     </div>
-    <VoiceStatsTable v-else :grouping="grouping" :rows="rows" />
+    <template v-else>
+      <VoiceMetricCards :totals="totals" />
+
+      <section v-for="key in SECTIONS" :key="key" class="flex flex-col gap-2">
+        <h3 class="text-base font-medium text-n-slate-12">
+          {{ t(`VOICE_REPORTS.SECTIONS.${key.toUpperCase()}`) }}
+        </h3>
+        <VoiceStatsTable :grouping="grouping" :rows="rows" :section="key" />
+      </section>
+    </template>
   </div>
 </template>

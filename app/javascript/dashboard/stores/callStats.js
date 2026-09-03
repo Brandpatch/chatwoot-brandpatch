@@ -6,6 +6,7 @@ import { defineStore } from 'pinia';
 export const useCallStatsStore = defineStore('callStats', {
   state: () => ({
     rows: [],
+    totals: {},
     uiFlags: { isFetching: false },
     fetchRequestToken: 0,
   }),
@@ -27,13 +28,16 @@ export const useCallStatsStore = defineStore('callStats', {
           ...(inboxId ? { inbox_id: inboxId } : {}),
         });
         if (this.fetchRequestToken !== requestToken) return this.rows;
-        this.rows = camelcaseKeys(data, { deep: true });
+        const payload = camelcaseKeys(data, { deep: true });
+        this.rows = payload.rows ?? [];
+        this.totals = payload.totals ?? {};
         return this.rows;
       } catch (error) {
         if (this.fetchRequestToken !== requestToken) return this.rows;
-        // Drop the previous rows so figures from the old grouping aren't read
-        // under the new one's column headings.
+        // Drop the previous figures so numbers from the old grouping aren't
+        // read under the new one's column headings.
         this.rows = [];
+        this.totals = {};
         return throwErrorMessage(error);
       } finally {
         if (this.fetchRequestToken === requestToken) {
@@ -44,6 +48,7 @@ export const useCallStatsStore = defineStore('callStats', {
 
     resetStats() {
       this.rows = [];
+      this.totals = {};
       this.uiFlags.isFetching = false;
     },
   },

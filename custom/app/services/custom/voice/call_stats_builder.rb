@@ -30,7 +30,31 @@ module Custom
         grouping = group_by.to_sym
         raise ArgumentError, "unknown grouping: #{group_by}" unless GROUPINGS.include?(grouping)
 
-        grouping == :agent ? rows_by_agent : rows_by_inbox
+        {
+          totals: totals,
+          rows: grouping == :agent ? rows_by_agent : rows_by_inbox
+        }
+      end
+
+      # Period figures for the whole scope, so the summary answers "how did we
+      # do" without the reader adding up a column. They are inbox-level on
+      # purpose: received and unattended have no per-agent meaning, and the
+      # response rate across everyone is not the average of the per-agent ones.
+      def totals
+        turns = ring_attempts.group(:outcome).count
+        taken = turns[Custom::CallRingAttempt::ANSWERED].to_i
+        missed = Custom::CallRingAttempt::MISSED_OUTCOMES.sum { |o| turns[o].to_i }
+
+        {
+          received_calls: calls.incoming.where(status: Custom::Call::TERMINAL_STATUSES).count,
+          calls_answered: calls.incoming.where(ANSWERED_SQL).count,
+          unattended_calls: unattended_calls.count,
+          response_rate: response_rate(taken, missed),
+          avg_time_to_answer: round_seconds(ring_attempts.answered.average(TIME_TO_ANSWER_SQL)),
+          call_minutes: to_minutes(calls.where(ANSWERED_SQL).sum(:duration_seconds)),
+          outbound_calls: calls.outgoing.count,
+          outbound_call_minutes: to_minutes(calls.outgoing.sum(:duration_seconds))
+        }
       end
 
       private

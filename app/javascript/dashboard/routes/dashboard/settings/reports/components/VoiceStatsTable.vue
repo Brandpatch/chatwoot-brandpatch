@@ -25,6 +25,12 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  section: {
+    type: String,
+    required: true,
+    validator: value =>
+      ['attention', 'outbound', 'conversations'].includes(value),
+  },
 });
 
 const { t } = useI18n();
@@ -63,35 +69,50 @@ const FORMATTERS = {
 const cellFor = format => cellProps =>
   h(BaseCell, { content: FORMATTERS[format](cellProps.getValue()) });
 
-// Missed calls and response rate exist only per agent: they count turns an
-// agent was offered, which an inbox does not have. The inbox carries
-// unattended calls instead — the ones nobody in the team took.
-const METRIC_COLUMNS = {
-  agent: [
-    ['callsAnswered', 'ANSWERED', 'count'],
-    ['missedCalls', 'MISSED', 'count'],
-    ['responseRate', 'RESPONSE_RATE', 'percent'],
-    ['avgTimeToAnswer', 'TIME_TO_ANSWER', 'seconds'],
-    ['outboundCalls', 'OUTBOUND', 'count'],
-    ['callMinutes', 'MINUTES', 'minutes'],
-    ['outboundCallMinutes', 'OUTBOUND_MINUTES', 'minutes'],
-    ['avgOutboundDuration', 'AVG_OUTBOUND', 'seconds'],
-    ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
-    ['notes', 'NOTES', 'count'],
-    ['resolvedConversations', 'RESOLVED', 'count'],
-  ],
-  inbox: [
-    ['callsAnswered', 'ANSWERED', 'count'],
-    ['unattendedCalls', 'UNATTENDED', 'count'],
-    ['avgTimeToAnswer', 'TIME_TO_ANSWER', 'seconds'],
-    ['outboundCalls', 'OUTBOUND', 'count'],
-    ['callMinutes', 'MINUTES', 'minutes'],
-    ['outboundCallMinutes', 'OUTBOUND_MINUTES', 'minutes'],
-    ['avgOutboundDuration', 'AVG_OUTBOUND', 'seconds'],
-    ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
-    ['notes', 'NOTES', 'count'],
-    ['resolvedConversations', 'RESOLVED', 'count'],
-  ],
+// Grouped by the question each section answers, so no table carries more
+// columns than can be read at a glance. Missed calls and response rate exist
+// only per agent — they count turns an agent was offered, which an inbox does
+// not have — so the inbox measures the same section by what nobody took.
+const SECTION_COLUMNS = {
+  attention: {
+    agent: [
+      ['callsAnswered', 'ANSWERED', 'count'],
+      ['missedCalls', 'MISSED', 'count'],
+      ['responseRate', 'RESPONSE_RATE', 'percent'],
+      ['avgTimeToAnswer', 'TIME_TO_ANSWER', 'seconds'],
+      ['callMinutes', 'MINUTES', 'minutes'],
+    ],
+    inbox: [
+      ['callsAnswered', 'ANSWERED', 'count'],
+      ['unattendedCalls', 'UNATTENDED', 'count'],
+      ['avgTimeToAnswer', 'TIME_TO_ANSWER', 'seconds'],
+      ['callMinutes', 'MINUTES', 'minutes'],
+    ],
+  },
+  outbound: {
+    agent: [
+      ['outboundCalls', 'OUTBOUND', 'count'],
+      ['outboundCallMinutes', 'OUTBOUND_MINUTES', 'minutes'],
+      ['avgOutboundDuration', 'AVG_OUTBOUND', 'seconds'],
+    ],
+    inbox: [
+      ['outboundCalls', 'OUTBOUND', 'count'],
+      ['outboundCallMinutes', 'OUTBOUND_MINUTES', 'minutes'],
+      ['avgOutboundDuration', 'AVG_OUTBOUND', 'seconds'],
+    ],
+  },
+  conversations: {
+    agent: [
+      ['notes', 'NOTES', 'count'],
+      ['resolvedConversations', 'RESOLVED', 'count'],
+      ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
+    ],
+    inbox: [
+      ['notes', 'NOTES', 'count'],
+      ['resolvedConversations', 'RESOLVED', 'count'],
+      ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
+    ],
+  },
 };
 
 const columnHelper = createColumnHelper();
@@ -119,7 +140,8 @@ const columns = computed(() => {
         size: 260,
       });
 
-  const metrics = METRIC_COLUMNS[props.grouping].map(([key, label, format]) =>
+  const sectionColumns = SECTION_COLUMNS[props.section][props.grouping];
+  const metrics = sectionColumns.map(([key, label, format]) =>
     columnHelper.accessor(key, {
       header: t(`VOICE_REPORTS.COLUMNS.${label}`),
       cell: cellFor(format),
@@ -152,9 +174,11 @@ const table = useVueTable({
 
 <template>
   <div class="flex flex-col flex-1">
-    <Table :table="table" class="max-h-[calc(100vh-21.875rem)]" />
+    <Table :table="table" />
+    <!-- Three sections share the page, so the pager only earns its space once
+         a list is actually longer than a page. -->
     <Pagination
-      v-if="rows.length"
+      v-if="rows.length > getPageSize()"
       class="mt-2"
       :table="table"
       show-page-size-selector
