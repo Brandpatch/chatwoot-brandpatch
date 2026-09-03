@@ -545,6 +545,63 @@
       }
     }
   },
+  "VOICE_REPORTS": {
+    "HEADER": "Call Reports",
+    "LOADING": "Loading call figures…",
+    "EMPTY": "No calls in this period.",
+    "UNASSIGNED": "Unassigned",
+    "TABS": {
+      "AGENT": "By agent",
+      "INBOX": "By inbox"
+    },
+    "COLUMNS": {
+      "AGENT": "Agent",
+      "INBOX": "Inbox",
+      "ANSWERED": "Answered",
+      "MISSED": "Missed calls",
+      "UNATTENDED": "Unattended calls",
+      "RESPONSE_RATE": "Response rate",
+      "TIME_TO_ANSWER": "Time to answer",
+      "OUTBOUND": "Outbound",
+      "MINUTES": "Minutes",
+      "OUTBOUND_MINUTES": "Outbound minutes",
+      "AVG_OUTBOUND": "Avg. outbound call",
+      "TIME_TO_CAPTURE": "Time to capture",
+      "NOTES": "Notes",
+      "RESOLVED": "Resolved"
+    },
+    "SUMMARY": {
+      "RECEIVED": {
+        "LABEL": "Calls received",
+        "TOOLTIP": "Every inbound call that reached this inbox in the period."
+      },
+      "ANSWERED": {
+        "LABEL": "Answered",
+        "TOOLTIP": "Inbound calls an agent actually spoke on. Declined calls are not counted here."
+      },
+      "UNATTENDED": {
+        "LABEL": "Unattended",
+        "TOOLTIP": "Inbound calls that ended with no agent on them: timed out, declined, or the caller gave up."
+      },
+      "RESPONSE_RATE": {
+        "LABEL": "Response rate",
+        "TOOLTIP": "Turns answered out of the turns agents were offered. Calls where the caller hung up while it rang are excluded."
+      },
+      "TIME_TO_ANSWER": {
+        "LABEL": "Time to answer",
+        "TOOLTIP": "Average time from a call ringing an agent to that agent picking up."
+      },
+      "MINUTES": {
+        "LABEL": "Minutes on calls",
+        "TOOLTIP": "Total talk time across answered calls."
+      }
+    },
+    "SECTIONS": {
+      "ATTENTION": "Inbound call handling",
+      "OUTBOUND": "Outbound calls",
+      "CONVERSATIONS": "Conversation work"
+    }
+  },
   "OVERVIEW_REPORTS": {
     "HEADER": "Overview",
     "LIVE": "Live",

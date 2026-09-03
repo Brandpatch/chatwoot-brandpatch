@@ -541,6 +541,63 @@
       }
     }
   },
+  "VOICE_REPORTS": {
+    "HEADER": "Informes de llamadas",
+    "LOADING": "Cargando métricas de llamadas...",
+    "EMPTY": "No hay llamadas en este período.",
+    "UNASSIGNED": "Sin asignar",
+    "TABS": {
+      "AGENT": "Por agente",
+      "INBOX": "Por bandeja de entrada"
+    },
+    "COLUMNS": {
+      "AGENT": "Agente",
+      "INBOX": "Bandeja de entrada",
+      "ANSWERED": "Contestadas",
+      "MISSED": "Llamadas perdidas",
+      "UNATTENDED": "Llamadas sin atender",
+      "RESPONSE_RATE": "Tasa de respuesta",
+      "TIME_TO_ANSWER": "Tiempo hasta contestar",
+      "OUTBOUND": "Salientes",
+      "MINUTES": "Minutos",
+      "OUTBOUND_MINUTES": "Minutos salientes",
+      "AVG_OUTBOUND": "Prom. llamada saliente",
+      "TIME_TO_CAPTURE": "Tiempo de captura",
+      "NOTES": "Notas",
+      "RESOLVED": "Resueltas"
+    },
+    "SUMMARY": {
+      "RECEIVED": {
+        "LABEL": "Llamadas recibidas",
+        "TOOLTIP": "Todas las llamadas entrantes que llegaron a esta bandeja en el período."
+      },
+      "ANSWERED": {
+        "LABEL": "Contestadas",
+        "TOOLTIP": "Llamadas entrantes en las que un agente efectivamente habló. Las rechazadas no se cuentan acá."
+      },
+      "UNATTENDED": {
+        "LABEL": "Sin atender",
+        "TOOLTIP": "Entrantes que terminaron sin ningún agente: expiraron, fueron rechazadas, o el llamante colgó."
+      },
+      "RESPONSE_RATE": {
+        "LABEL": "Tasa de respuesta",
+        "TOOLTIP": "Turnos contestados sobre los turnos que se les ofrecieron a los agentes. No cuenta las que el llamante cortó mientras sonaba."
+      },
+      "TIME_TO_ANSWER": {
+        "LABEL": "Tiempo hasta contestar",
+        "TOOLTIP": "Promedio desde que la llamada suena en un agente hasta que ese agente atiende."
+      },
+      "MINUTES": {
+        "LABEL": "Minutos en llamada",
+        "TOOLTIP": "Tiempo total hablado en las llamadas contestadas."
+      }
+    },
+    "SECTIONS": {
+      "ATTENTION": "Atención de llamadas entrantes",
+      "OUTBOUND": "Llamadas salientes",
+      "CONVERSATIONS": "Trabajo en conversaciones"
+    }
+  },
   "OVERVIEW_REPORTS": {
     "HEADER": "Resumen",
     "LIVE": "En vivo",

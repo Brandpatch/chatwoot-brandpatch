@@ -597,6 +597,7 @@ Rails.application.routes.draw do
             scope module: :accounts do
               resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
               resources :calls, only: [:index], controller: 'calls'
+              resources :call_stats, only: [:index], controller: 'call_stats'
               resources :inboxes, only: [] do
                 resource :conference, only: %i[create destroy], controller: 'conference' do
                   get :token, on: :member
