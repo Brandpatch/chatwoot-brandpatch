@@ -48,11 +48,16 @@ const formatSeconds = value => {
 };
 
 const FORMATTERS = {
-  count: value => String(value ?? 0),
+  // A real agent always gets a number here, zero included, since a zero is
+  // itself the finding. Only the unassigned row sends nothing, and that must
+  // read as blank rather than as a zero it did not earn.
+  count: value =>
+    value === null || value === undefined ? '' : String(value),
   percent: value =>
     value === null || value === undefined ? '' : `${Math.round(value * 100)}%`,
   seconds: formatSeconds,
-  minutes: value => (value ? value.toFixed(2) : '0'),
+  minutes: value =>
+    value === null || value === undefined ? '' : value.toFixed(2),
 };
 
 const cellFor = format => cellProps =>
@@ -100,7 +105,12 @@ const columns = computed(() => {
   const nameColumn = isAgent
     ? columnHelper.accessor('agent', {
         header: t('VOICE_REPORTS.COLUMNS.AGENT'),
-        cell: cellProps => h(AgentCell, cellProps),
+        // The unassigned row is not a person, so it gets the plain label
+        // instead of an avatar and an email it does not have.
+        cell: cellProps =>
+          cellProps.row.original.id === null
+            ? h(BaseCell, { content: t('VOICE_REPORTS.UNASSIGNED') })
+            : h(AgentCell, cellProps),
         size: 260,
       })
     : columnHelper.accessor('agent', {

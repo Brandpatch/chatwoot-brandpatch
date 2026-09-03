@@ -545,6 +545,7 @@
     "HEADER": "Informes de llamadas",
     "LOADING": "Cargando métricas de llamadas...",
     "EMPTY": "No hay llamadas en este período.",
+    "UNASSIGNED": "Sin asignar",
     "TABS": {
       "AGENT": "Por agente",
       "INBOX": "Por bandeja de entrada"

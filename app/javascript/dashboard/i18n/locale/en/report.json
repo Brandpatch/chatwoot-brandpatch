@@ -549,6 +549,7 @@
     "HEADER": "Call Reports",
     "LOADING": "Loading call figures…",
     "EMPTY": "No calls in this period.",
+    "UNASSIGNED": "Unassigned",
     "TABS": {
       "AGENT": "By agent",
       "INBOX": "By inbox"

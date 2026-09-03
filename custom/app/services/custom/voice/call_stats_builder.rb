@@ -96,7 +96,7 @@ module Custom
         notes = private_notes.group(:sender_id).count
         resolved = resolved_conversations.group(:assignee_id).count
 
-        agents.map do |agent|
+        rows = agents.map do |agent|
           id = agent.id
           missed = Custom::CallRingAttempt::MISSED_OUTCOMES.sum { |o| turns[[id, o]].to_i }
           taken = turns[[id, Custom::CallRingAttempt::ANSWERED]].to_i
@@ -121,6 +121,44 @@ module Custom
             resolved_conversations: resolved[id].to_i
           }
         end
+
+        rows + unattributed_rows(rows)
+      end
+
+      # Work on call conversations that no agent row can claim, so the per-agent
+      # figures add up to the inbox ones instead of quietly losing a couple of
+      # rows. The common case is a call nobody answered: no agent ever joined,
+      # so the conversation was never assigned, and somebody closed it from the
+      # unassigned list later.
+      #
+      # Taken as total minus attributed rather than by looking for a null
+      # assignee, so it also catches work credited to somebody who is not a
+      # member of these inboxes and so has no row of their own.
+      def unattributed_rows(rows)
+        resolved_gap = resolved_conversations.count - rows.sum { |r| r[:resolved_conversations] }
+        notes_gap = private_notes.count - rows.sum { |r| r[:notes] }
+        return [] if resolved_gap <= 0 && notes_gap <= 0
+
+        # A nil id marks the row as not being an agent: the frontend labels it
+        # and skips the avatar. Metrics that only mean something for an agent
+        # stay nil so they render blank instead of as a misleading zero.
+        [{
+          id: nil,
+          name: nil,
+          email: nil,
+          thumbnail: nil,
+          calls_answered: nil,
+          outbound_calls: nil,
+          missed_calls: nil,
+          response_rate: nil,
+          avg_time_to_answer: nil,
+          call_minutes: nil,
+          outbound_call_minutes: nil,
+          avg_outbound_duration: nil,
+          avg_time_to_capture: nil,
+          notes: [notes_gap, 0].max,
+          resolved_conversations: [resolved_gap, 0].max
+        }]
       end
 
       # Agents who can take calls on the inboxes in scope, so someone who
