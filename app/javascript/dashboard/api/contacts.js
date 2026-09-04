@@ -47,8 +47,11 @@ class ContactAPI extends ApiClient {
     return axios.get(`${this.url}/${contactId}/labels`);
   }
 
+  // Placing an outbound call is the one endpoint on this client with a custom
+  // counterpart, so the /custom prefix goes here rather than on the
+  // constructor: every other contacts endpoint only exists under /api/v1.
   initiateCall(contactId, inboxId, conversationId = null) {
-    return axios.post(`${this.url}/${contactId}/call`, {
+    return axios.post(`/custom${this.url}/${contactId}/call`, {
       inbox_id: inboxId,
       conversation_id: conversationId,
     });
