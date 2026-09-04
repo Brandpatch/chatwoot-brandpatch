@@ -105,12 +105,10 @@ const SECTION_COLUMNS = {
     agent: [
       ['notes', 'NOTES', 'count'],
       ['resolvedConversations', 'RESOLVED', 'count'],
-      ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
     ],
     inbox: [
       ['notes', 'NOTES', 'count'],
       ['resolvedConversations', 'RESOLVED', 'count'],
-      ['avgTimeToCapture', 'TIME_TO_CAPTURE', 'seconds'],
     ],
   },
 };

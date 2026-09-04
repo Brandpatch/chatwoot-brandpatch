@@ -562,7 +562,6 @@
       "MINUTES": "Minutos",
       "OUTBOUND_MINUTES": "Minutos salientes",
       "AVG_OUTBOUND": "Prom. llamada saliente",
-      "TIME_TO_CAPTURE": "Tiempo de captura",
       "NOTES": "Notas",
       "RESOLVED": "Resueltas"
     },
@@ -585,7 +584,7 @@
       },
       "TIME_TO_ANSWER": {
         "LABEL": "Tiempo hasta contestar",
-        "TOOLTIP": "Promedio desde que la llamada suena en un agente hasta que ese agente atiende."
+        "TOOLTIP": "Promedio de espera del cliente, desde que la llamada llega a la bandeja hasta que un agente atiende."
       },
       "MINUTES": {
         "LABEL": "Minutos en llamada",

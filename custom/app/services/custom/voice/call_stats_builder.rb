@@ -19,8 +19,15 @@ module Custom
       # counted against the agent as missed.
       ANSWERED_SQL = "calls.accepted_by_agent_id IS NOT NULL AND calls.status <> 'rejected'"
 
+      # How long an agent took on a turn that was offered to them, measured over
+      # call_ring_attempts. Only meaningful per agent: an inbox has no turns.
       TIME_TO_ANSWER_SQL = Arel.sql('EXTRACT(EPOCH FROM (ended_at - rang_at))')
-      TIME_TO_CAPTURE_SQL = Arel.sql(
+
+      # How long the customer waited in total, from the call reaching us to an
+      # agent picking up. This is the inbox's answer: averaging the agents' own
+      # reaction times hides every turn that lapsed before somebody answered,
+      # so a call that rang three agents looks as quick as one answered at once.
+      CUSTOMER_WAIT_SQL = Arel.sql(
         "EXTRACT(EPOCH FROM started_at) - (calls.meta->>'initiated_at')::bigint"
       )
 
@@ -50,7 +57,7 @@ module Custom
           calls_answered: calls.incoming.where(ANSWERED_SQL).count,
           unattended_calls: unattended_calls.count,
           response_rate: response_rate(taken, missed),
-          avg_time_to_answer: round_seconds(ring_attempts.answered.average(TIME_TO_ANSWER_SQL)),
+          avg_time_to_answer: round_seconds(answered_incoming_calls.average(CUSTOMER_WAIT_SQL)),
           call_minutes: to_minutes(calls.where(ANSWERED_SQL).sum(:duration_seconds)),
           outbound_calls: calls.outgoing.count,
           outbound_call_minutes: to_minutes(calls.outgoing.sum(:duration_seconds))
@@ -95,6 +102,12 @@ module Custom
              .where.not(ANSWERED_SQL)
       end
 
+      # Answered inbound calls that can say how long the customer waited. A call
+      # with no started_at never reached an agent, so it has no wait to average.
+      def answered_incoming_calls
+        @answered_incoming_calls ||= calls.incoming.where(ANSWERED_SQL).where.not(started_at: nil)
+      end
+
       # Message carries a default order, which Postgres rejects once these are
       # grouped since the ordered column is not in the GROUP BY.
       def private_notes
@@ -113,8 +126,6 @@ module Custom
         minutes = calls.where(ANSWERED_SQL).group(:accepted_by_agent_id).sum(:duration_seconds)
         outbound_minutes = calls.outgoing.group(:accepted_by_agent_id).sum(:duration_seconds)
         outbound_avg = calls.outgoing.group(:accepted_by_agent_id).average(:duration_seconds)
-        capture = calls.incoming.where(ANSWERED_SQL).where.not(started_at: nil)
-                       .group(:accepted_by_agent_id).average(TIME_TO_CAPTURE_SQL)
         turns = ring_attempts.group(:agent_id, :outcome).count
         answer_time = ring_attempts.answered.group(:agent_id).average(TIME_TO_ANSWER_SQL)
         notes = private_notes.group(:sender_id).count
@@ -140,7 +151,6 @@ module Custom
             call_minutes: to_minutes(minutes[id]),
             outbound_call_minutes: to_minutes(outbound_minutes[id]),
             avg_outbound_duration: round_seconds(outbound_avg[id]),
-            avg_time_to_capture: round_seconds(capture[id]),
             notes: notes[id].to_i,
             resolved_conversations: resolved[id].to_i
           }
@@ -179,7 +189,6 @@ module Custom
           call_minutes: nil,
           outbound_call_minutes: nil,
           avg_outbound_duration: nil,
-          avg_time_to_capture: nil,
           notes: [notes_gap, 0].max,
           resolved_conversations: [resolved_gap, 0].max
         }]
@@ -211,10 +220,7 @@ module Custom
         minutes = calls.where(ANSWERED_SQL).group(:inbox_id).sum(:duration_seconds)
         outbound_minutes = calls.outgoing.group(:inbox_id).sum(:duration_seconds)
         outbound_avg = calls.outgoing.group(:inbox_id).average(:duration_seconds)
-        capture = calls.incoming.where(ANSWERED_SQL).where.not(started_at: nil)
-                       .group(:inbox_id).average(TIME_TO_CAPTURE_SQL)
-        answer_time = ring_attempts.answered.joins(:call).group('calls.inbox_id')
-                                   .average(TIME_TO_ANSWER_SQL)
+        answer_time = answered_incoming_calls.group(:inbox_id).average(CUSTOMER_WAIT_SQL)
         notes = private_notes.joins(:conversation).group('conversations.inbox_id').count
         resolved = resolved_conversations.group(:inbox_id).count
 
@@ -230,7 +236,6 @@ module Custom
             call_minutes: to_minutes(minutes[id]),
             outbound_call_minutes: to_minutes(outbound_minutes[id]),
             avg_outbound_duration: round_seconds(outbound_avg[id]),
-            avg_time_to_capture: round_seconds(capture[id]),
             notes: notes[id].to_i,
             resolved_conversations: resolved[id].to_i
           }
