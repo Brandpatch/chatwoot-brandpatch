@@ -566,7 +566,6 @@
       "MINUTES": "Minutes",
       "OUTBOUND_MINUTES": "Outbound minutes",
       "AVG_OUTBOUND": "Avg. outbound call",
-      "TIME_TO_CAPTURE": "Time to capture",
       "NOTES": "Notes",
       "RESOLVED": "Resolved"
     },
@@ -589,7 +588,7 @@
       },
       "TIME_TO_ANSWER": {
         "LABEL": "Time to answer",
-        "TOOLTIP": "Average time from a call ringing an agent to that agent picking up."
+        "TOOLTIP": "Average time the customer waited, from the call reaching the inbox to an agent picking up."
       },
       "MINUTES": {
         "LABEL": "Minutes on calls",

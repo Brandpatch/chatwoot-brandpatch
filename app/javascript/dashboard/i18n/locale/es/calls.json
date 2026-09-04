@@ -37,6 +37,7 @@
       "RINGING": "Sonando",
       "IN_PROGRESS": "En progreso",
       "NO_AGENT": "Ningún agente respondió esta llamada",
+      "DECLINED_BY": "Rechazada por {agentName}",
       "NO_CONTACT_ANSWER": "El contacto no respondió",
       "FAILED": "La llamada no se ha podido conectar",
       "YESTERDAY": "Ayer"

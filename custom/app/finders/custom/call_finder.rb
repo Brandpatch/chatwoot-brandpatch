@@ -14,6 +14,7 @@ module Custom
       @calls = @current_account.custom_calls
       filter_by_visibility
       filter_by_status
+      filter_by_attendance
       filter_by_direction
       filter_by_inbox
       filter_by_agent
@@ -44,6 +45,17 @@ module Custom
 
     def filter_by_status
       @calls = @calls.where(status: Custom::Call.status_from_display(@params[:status])) if @params[:status].present?
+    end
+
+    # Whether an agent was on the call is not a status: a caller who hangs up
+    # while it rings lands on 'completed' with nobody on it. Only terminal calls
+    # can be judged, since a ringing one has not failed to be attended yet.
+    # Shares Custom::Call's definition so this list and the reports agree.
+    def filter_by_attendance
+      return if @params[:attended].blank?
+
+      @calls = @calls.where(status: Custom::Call::TERMINAL_STATUSES)
+      @calls = ActiveModel::Type::Boolean.new.cast(@params[:attended]) ? @calls.answered : @calls.unanswered
     end
 
     def filter_by_direction
