@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-recording-playback
 
 jobs:
   build-and-push:
