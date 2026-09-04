@@ -11,14 +11,6 @@ module Custom
     class CallStatsBuilder
       GROUPINGS = %i[agent inbox].freeze
 
-      # Neither column alone identifies a call an agent actually spoke on. A
-      # caller who joins the conference and hangs up before anyone picks up
-      # lands on 'completed' with no agent, and finalize_call! stamps
-      # accepted_by_agent_id when an agent declines — so going by that column
-      # alone credits a rejection as an answer, while the same turn is already
-      # counted against the agent as missed.
-      ANSWERED_SQL = "calls.accepted_by_agent_id IS NOT NULL AND calls.status <> 'rejected'"
-
       # How long an agent took on a turn that was offered to them, measured over
       # call_ring_attempts. Only meaningful per agent: an inbox has no turns.
       TIME_TO_ANSWER_SQL = Arel.sql('EXTRACT(EPOCH FROM (ended_at - rang_at))')
@@ -54,11 +46,11 @@ module Custom
 
         {
           received_calls: calls.incoming.where(status: Custom::Call::TERMINAL_STATUSES).count,
-          calls_answered: calls.incoming.where(ANSWERED_SQL).count,
+          calls_answered: calls.incoming.answered.count,
           unattended_calls: unattended_calls.count,
           response_rate: response_rate(taken, missed),
           avg_time_to_answer: round_seconds(answered_incoming_calls.average(CUSTOMER_WAIT_SQL)),
-          call_minutes: to_minutes(calls.where(ANSWERED_SQL).sum(:duration_seconds)),
+          call_minutes: to_minutes(calls.answered.sum(:duration_seconds)),
           outbound_calls: calls.outgoing.count,
           outbound_call_minutes: to_minutes(calls.outgoing.sum(:duration_seconds))
         }
@@ -99,13 +91,13 @@ module Custom
       def unattended_calls
         calls.incoming
              .where(status: Custom::Call::TERMINAL_STATUSES)
-             .where.not(ANSWERED_SQL)
+             .unanswered
       end
 
       # Answered inbound calls that can say how long the customer waited. A call
       # with no started_at never reached an agent, so it has no wait to average.
       def answered_incoming_calls
-        @answered_incoming_calls ||= calls.incoming.where(ANSWERED_SQL).where.not(started_at: nil)
+        @answered_incoming_calls ||= calls.incoming.answered.where.not(started_at: nil)
       end
 
       # Message carries a default order, which Postgres rejects once these are
@@ -121,9 +113,9 @@ module Custom
       # ---------- by agent ----------
 
       def rows_by_agent
-        answered = calls.incoming.where(ANSWERED_SQL).group(:accepted_by_agent_id).count
+        answered = calls.incoming.answered.group(:accepted_by_agent_id).count
         outbound = calls.outgoing.group(:accepted_by_agent_id).count
-        minutes = calls.where(ANSWERED_SQL).group(:accepted_by_agent_id).sum(:duration_seconds)
+        minutes = calls.answered.group(:accepted_by_agent_id).sum(:duration_seconds)
         outbound_minutes = calls.outgoing.group(:accepted_by_agent_id).sum(:duration_seconds)
         outbound_avg = calls.outgoing.group(:accepted_by_agent_id).average(:duration_seconds)
         turns = ring_attempts.group(:agent_id, :outcome).count
@@ -214,10 +206,10 @@ module Custom
       # ---------- by inbox ----------
 
       def rows_by_inbox
-        answered = calls.incoming.where(ANSWERED_SQL).group(:inbox_id).count
+        answered = calls.incoming.answered.group(:inbox_id).count
         unattended = unattended_calls.group(:inbox_id).count
         outbound = calls.outgoing.group(:inbox_id).count
-        minutes = calls.where(ANSWERED_SQL).group(:inbox_id).sum(:duration_seconds)
+        minutes = calls.answered.group(:inbox_id).sum(:duration_seconds)
         outbound_minutes = calls.outgoing.group(:inbox_id).sum(:duration_seconds)
         outbound_avg = calls.outgoing.group(:inbox_id).average(:duration_seconds)
         answer_time = answered_incoming_calls.group(:inbox_id).average(CUSTOMER_WAIT_SQL)

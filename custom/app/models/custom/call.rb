@@ -30,6 +30,15 @@ module Custom
     validates :direction, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
 
+    # Whether an agent was actually on the call. Neither column says so alone: a
+    # caller who hangs up while it rings lands on 'completed' with no agent, and
+    # finalize_call! stamps accepted_by_agent_id when an agent declines, so that
+    # column by itself credits a rejection as an answer. The reports and the
+    # call list share this definition so their figures agree.
+    ANSWERED_SQL = "calls.accepted_by_agent_id IS NOT NULL AND calls.status <> 'rejected'"
+
+    scope :answered,                 -> { where(ANSWERED_SQL) }
+    scope :unanswered,               -> { where.not(ANSWERED_SQL) }
     scope :active,                   -> { where.not(status: TERMINAL_STATUSES) }
     scope :by_conference_sid,        ->(sid) { where("meta->>'conference_sid' = ?", sid) }
     scope :by_twilio_conference_sid, ->(sid) { where("meta->>'twilio_conference_sid' = ?", sid) }
