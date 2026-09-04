@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import { useAlert } from 'dashboard/composables';
-import { useAdmin } from 'dashboard/composables/useAdmin';
+import { usePolicy } from 'dashboard/composables/usePolicy';
 import { isVoiceCallEnabled } from 'dashboard/helper/inbox';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 import { useCallHistoryStore } from 'dashboard/stores/callHistory';
@@ -33,9 +33,14 @@ const isFeatureEnabledonAccount = useMapGetter(
   'accounts/isFeatureEnabledonAccount'
 );
 
-// CallFinder scopes non-admins to their own accepted calls, so the assignee
-// filter is only meaningful for admins; everyone else defaults to themselves.
-const { isAdmin } = useAdmin();
+// CallFinder grants account-wide visibility to administrators and to custom
+// roles carrying report_manage, so the assignee filter is meaningful to both.
+// Everyone else only ever gets their own accepted calls, and stays pinned to
+// themselves rather than being shown a filter that cannot widen anything.
+const { checkPermissions } = usePolicy();
+const hasAccountWideAccess = computed(() =>
+  checkPermissions(['administrator', 'report_manage'])
+);
 
 const voiceInboxes = computed(() => inboxes.value.filter(isVoiceCallEnabled));
 
@@ -65,7 +70,9 @@ const activity = ref(
 );
 
 const assigneeId = ref(
-  isAdmin.value ? Number(route.query.assignee_id) || null : currentUserId.value
+  hasAccountWideAccess.value
+    ? Number(route.query.assignee_id) || null
+    : currentUserId.value
 );
 const inboxId = ref(Number(route.query.inbox_id) || null);
 const currentPage = ref(Number(route.query.page) || 1);
@@ -74,7 +81,7 @@ const syncFiltersToUrl = () => {
   router.replace({
     query: {
       ...(activity.value && { activity: activity.value }),
-      ...(isAdmin.value &&
+      ...(hasAccountWideAccess.value &&
         assigneeId.value && { assignee_id: assigneeId.value }),
       ...(inboxId.value && { inbox_id: inboxId.value }),
       ...(currentPage.value > 1 && { page: currentPage.value }),
@@ -113,8 +120,8 @@ onMounted(async () => {
       until(() => accountUiFlags.value.isFetchingItem).toBe(false),
     ]);
     if (!isVoiceEnabled.value) return;
-    // Only admins see the assignee filter, so only they need the agent list.
-    if (isAdmin.value) store.dispatch('agents/get');
+    // Only those who see the assignee filter need the agent list.
+    if (hasAccountWideAccess.value) store.dispatch('agents/get');
     await fetchCalls();
   } finally {
     isInitializing.value = false;
@@ -148,7 +155,7 @@ onMounted(async () => {
         :total-count="isFetching ? null : meta.count"
         :agents="agents"
         :inboxes="voiceInboxes"
-        :show-assignee="isAdmin"
+        :show-assignee="hasAccountWideAccess"
       />
     </header>
     <main class="flex-1 px-6 overflow-y-auto">
