@@ -123,7 +123,7 @@ function extractCallData(message) {
     assigneeId: extractAssigneeId(message?.conversation),
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
-    currentRingAgentId: message?.custom_call?.current_ring_agent_id ?? null,
+    currentRingAgentId: call.current_ring_agent_id ?? null,
   };
 }
 
