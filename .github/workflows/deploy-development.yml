@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-inbox-delete-cascades
 
 jobs:
   build-and-push:
