@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/voice-widget-lost-after-ring-moves
 
 jobs:
   build-and-push:
