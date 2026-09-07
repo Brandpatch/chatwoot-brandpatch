@@ -68,6 +68,7 @@ const shouldShowCall = ({
   assigneeId,
   currentUserId,
   currentRingAgentId,
+  acceptedByAgentId,
   provider,
 }) => {
   if (shouldSkipCall(callDirection, senderId, currentUserId)) return false;
@@ -78,6 +79,12 @@ const shouldShowCall = ({
   // Twilio inbound calls use explicit ring routing: only the assigned agent rings.
   // currentRingAgentId=null means unassigned (no agents available) — no one rings.
   if (provider === VOICE_CALL_PROVIDERS.TWILIO) {
+    // A call this agent already answered is theirs whoever it rings for now.
+    // The ring moves on the moment their turn lapses — to the next agent, or
+    // to nobody at all — and answering from the conversation after that never
+    // puts it back. Going by the ring alone then reads the agent's own live
+    // call as somebody else's and tears down their audio leg mid-sentence.
+    if (acceptedByAgentId != null) return acceptedByAgentId === currentUserId;
     return currentRingAgentId === currentUserId;
   }
   return !isAssignedToAnotherAgent(assigneeId, currentUserId);
@@ -124,6 +131,7 @@ function extractCallData(message) {
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
     currentRingAgentId: call.current_ring_agent_id ?? null,
+    acceptedByAgentId: call.accepted_by_agent_id ?? null,
   };
 }
 
@@ -145,6 +153,7 @@ export function handleVoiceCallCreated(
     assigneeId,
     senderId,
     currentRingAgentId,
+    acceptedByAgentId,
   } = extractCallData(message);
 
   if (callSid && dismissedCallSids.has(callSid)) return;
@@ -161,6 +170,7 @@ export function handleVoiceCallCreated(
       assigneeId,
       currentUserId,
       currentRingAgentId,
+      acceptedByAgentId,
       provider,
     })
   ) {
@@ -201,6 +211,7 @@ export function handleVoiceCallUpdated(
     assigneeId,
     senderId,
     currentRingAgentId,
+    acceptedByAgentId,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -224,6 +235,7 @@ export function handleVoiceCallUpdated(
       assigneeId,
       currentUserId,
       currentRingAgentId,
+      acceptedByAgentId,
       provider,
     })
   ) {
