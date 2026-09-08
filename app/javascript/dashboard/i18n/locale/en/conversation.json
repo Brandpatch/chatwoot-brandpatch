@@ -402,6 +402,8 @@
       "MUTE": "Mute mic",
       "UNMUTE": "Unmute mic",
       "VIEW_CHAT_HISTORY": "View chat history",
+      "MINIMIZE": "Minimize",
+      "DRAG_TO_MOVE": "Drag to move",
       "GO_TO_CONVERSATION": "Go to conversation thread"
     }
   },
