@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/voice-widget-draggable
 
 jobs:
   build-and-push:
