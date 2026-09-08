@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/voice-decline-handling
 
 jobs:
   build-and-push:
