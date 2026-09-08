@@ -30,10 +30,19 @@ module Custom
             }
           end
 
+          # finalize_call! runs before the provider teardown on purpose. Ending
+          # the conference completes the caller's leg, and Twilio posts the
+          # status webhook for it within a couple hundred milliseconds — fast
+          # enough to mark the call terminal first, which made finalize_call!
+          # bail on its own `next if call.terminal?` and drop the outcome
+          # silently. A declined call was then stored as the caller having
+          # given up: no agent, no end_reason, and its ring turn closed as
+          # caller_hangup, so it counted against nobody and read as "missed"
+          # in the list.
           def destroy
             call = resolve_call!
-            Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
             finalize_call!(call)
+            Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
             call.broadcast_voice_call_event(:ended, status: call.display_status)
             render json: { status: 'success', id: call.conversation.display_id }
           end
