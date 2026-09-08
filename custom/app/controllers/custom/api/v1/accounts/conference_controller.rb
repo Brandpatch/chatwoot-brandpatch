@@ -30,20 +30,26 @@ module Custom
             }
           end
 
+          # The widget sends this for both "I decline" and "I hang up", and only
+          # the call's own state tells them apart.
+          #
           # finalize_call! runs before the provider teardown on purpose. Ending
           # the conference completes the caller's leg, and Twilio posts the
           # status webhook for it within a couple hundred milliseconds — fast
           # enough to mark the call terminal first, which made finalize_call!
           # bail on its own `next if call.terminal?` and drop the outcome
-          # silently. A declined call was then stored as the caller having
-          # given up: no agent, no end_reason, and its ring turn closed as
-          # caller_hangup, so it counted against nobody and read as "missed"
-          # in the list.
+          # silently.
           def destroy
             call = resolve_call!
-            finalize_call!(call)
-            Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
-            call.broadcast_voice_call_event(:ended, status: call.display_status)
+
+            if declining_ringing_call?(call)
+              Custom::Voice::CallEscalationService.new(call: call, outcome: Custom::CallRingAttempt::REJECTED).perform
+            else
+              finalize_call!(call)
+              Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
+              call.broadcast_voice_call_event(:ended, status: call.display_status)
+            end
+
             render json: { status: 'success', id: call.conversation.display_id }
           end
 
@@ -76,26 +82,31 @@ module Custom
             render json: { error: error.message }, status: :conflict
           end
 
+          # Only reached once the agent is on the call, or claimed it and dropped
+          # it inside the window before Twilio's participant-join lands — which
+          # is the no_answer case here, since nobody was ever connected.
           def finalize_call!(call)
             status = nil
             call.with_lock do
               next if call.terminal?
 
-              if call.ringing? && call.accepted_by_agent_id.nil?
-                status = 'rejected'
-                call.update!(end_reason: 'agent_rejected', accepted_by_agent_id: Current.user.id)
-                Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::REJECTED,
-                                                         agent_id: Current.user.id)
-              elsif call.in_progress?
-                status = 'completed'
-                call.update!(end_reason: 'agent_hangup')
-              else
-                status = 'no_answer'
-                call.update!(end_reason: 'agent_hangup')
-              end
+              status = call.in_progress? ? 'completed' : 'no_answer'
+              call.update!(end_reason: 'agent_hangup')
               Custom::Voice::CallStatus::Manager.new(call: call).process_status_update(status)
             end
             Custom::Voice::CallMessageBuilder.new(call).update_status!(status: status, agent: Current.user) if status
+          end
+
+          # An agent declining a call that is still ringing hands it on instead
+          # of ending it: the caller stays in the conference while the router
+          # offers the turn to the next eligible agent, exactly as an unanswered
+          # ring does. Their own turn closes as `rejected`, which is what counts
+          # the decline against them in the reports.
+          #
+          # Outbound calls are created with accepted_by_agent already set, so
+          # they never match — they have no ring turn to hand on.
+          def declining_ringing_call?(call)
+            call.incoming? && call.ringing? && call.accepted_by_agent_id.nil?
           end
         end
       end
