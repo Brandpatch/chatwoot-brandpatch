@@ -132,7 +132,8 @@ json.bot_name resource.channel.try(:bot_name) if resource.telegram?
 
 ### WhatsApp Channel
 if resource.whatsapp?
-  json.message_templates resource.channel.try(:message_templates)
+  message_templates = resource.channel.try(:message_templates)
+  json.message_templates message_templates.is_a?(Array) ? message_templates : []
   json.provider_config resource.channel.try(:provider_config) if Current.account_user&.administrator?
   if Current.account_user&.administrator? &&
      ChatwootApp.chatwoot_cloud? &&
@@ -152,6 +153,8 @@ if resource.twilio? && resource.channel.respond_to?(:voice_enabled?)
   json.inbound_calls_enabled resource.channel.inbound_calls_enabled?
   json.voice_configured resource.channel.try(:twiml_app_sid).present?
   json.has_api_key_secret resource.channel.try(:api_key_secret).present?
+  json.ring_timeout_seconds resource.channel.try(:ring_timeout_seconds)
+  json.max_wait_seconds resource.channel.try(:max_wait_seconds)
   if resource.channel.try(:twiml_app_sid).present?
     json.voice_call_webhook_url resource.channel.try(:voice_call_webhook_url)
     json.voice_status_webhook_url resource.channel.try(:voice_status_webhook_url)

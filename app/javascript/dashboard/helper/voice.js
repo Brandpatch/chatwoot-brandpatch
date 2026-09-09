@@ -4,6 +4,7 @@ import {
 } from 'dashboard/components-next/message/constants';
 import { MESSAGE_TYPE } from 'shared/constants/messages';
 import { useCallsStore } from 'dashboard/stores/calls';
+import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import types from 'dashboard/store/mutation-types';
 
 export const TERMINAL_STATUSES = [
@@ -16,6 +17,31 @@ export const TERMINAL_STATUSES = [
   'missed',
   'ended',
 ];
+
+// A message.created for a ringing call is queued through ActionCableBroadcastJob and can
+// be delivered after the call has already been accepted/ended via a synchronous broadcast.
+// Track dismissed call sids at module scope so that late, stale "ringing" snapshot doesn't
+// resurrect a card every caller of handleVoiceCallCreated (hydration and real-time alike)
+// has already cleared.
+const dismissedCallSids = new Set();
+export const markCallDismissed = callSid => {
+  if (callSid) dismissedCallSids.add(callSid);
+};
+
+// Which Twilio call (if any) this tab is actively joining/owns. Must be set
+// synchronously BEFORE the join API call — mirrors useWhatsappCallSession's
+// activeCallId — so the account-wide voice_call.accepted broadcast (which can
+// arrive before the join promise resolves) doesn't mistake this tab's own
+// call for a sibling tab's and tear it down mid-join.
+let localCallSid = null;
+export const markLocalCall = callSid => {
+  localCallSid = callSid || null;
+};
+export const isLocalCall = callSid =>
+  !!callSid && localCallSid != null && callSid === localCallSid;
+export const clearLocalCall = callSid => {
+  if (localCallSid === callSid) localCallSid = null;
+};
 
 export const isInbound = direction => direction === 'inbound';
 
@@ -41,12 +67,26 @@ const shouldShowCall = ({
   senderId,
   assigneeId,
   currentUserId,
+  currentRingAgentId,
+  acceptedByAgentId,
+  provider,
 }) => {
   if (shouldSkipCall(callDirection, senderId, currentUserId)) return false;
   // Outbound calls are scoped to the initiator via shouldSkipCall; the
   // conversation may be auto-assigned to a different agent on creation, so
   // skip the assignee filter for outbound to avoid hiding the caller's own widget.
   if (callDirection === 'outbound') return true;
+  // Twilio inbound calls use explicit ring routing: only the assigned agent rings.
+  // currentRingAgentId=null means unassigned (no agents available) — no one rings.
+  if (provider === VOICE_CALL_PROVIDERS.TWILIO) {
+    // A call this agent already answered is theirs whoever it rings for now.
+    // The ring moves on the moment their turn lapses — to the next agent, or
+    // to nobody at all — and answering from the conversation after that never
+    // puts it back. Going by the ring alone then reads the agent's own live
+    // call as somebody else's and tears down their audio leg mid-sentence.
+    if (acceptedByAgentId != null) return acceptedByAgentId === currentUserId;
+    return currentRingAgentId === currentUserId;
+  }
   return !isAssignedToAnotherAgent(assigneeId, currentUserId);
 };
 
@@ -90,6 +130,8 @@ function extractCallData(message) {
     assigneeId: extractAssigneeId(message?.conversation),
     senderId: message?.sender?.id,
     caller: extractCallerSnapshot(message),
+    currentRingAgentId: call.current_ring_agent_id ?? null,
+    acceptedByAgentId: call.accepted_by_agent_id ?? null,
   };
 }
 
@@ -110,7 +152,11 @@ export function handleVoiceCallCreated(
     inboxId,
     assigneeId,
     senderId,
+    currentRingAgentId,
+    acceptedByAgentId,
   } = extractCallData(message);
+
+  if (callSid && dismissedCallSids.has(callSid)) return;
 
   // A voice_call message can be created already terminal when the caller hangs
   // up before connect. Only ring while the call is actually ringing; mirrors the
@@ -123,6 +169,9 @@ export function handleVoiceCallCreated(
       senderId,
       assigneeId,
       currentUserId,
+      currentRingAgentId,
+      acceptedByAgentId,
+      provider,
     })
   ) {
     return;
@@ -161,9 +210,15 @@ export function handleVoiceCallUpdated(
     inboxId,
     assigneeId,
     senderId,
+    currentRingAgentId,
+    acceptedByAgentId,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
+
+  // Guard against a still-queued ringing message.created arriving after this
+  // terminal update, same as the accepted/ended broadcast handlers.
+  if (TERMINAL_STATUSES.includes(status)) markCallDismissed(callSid);
 
   callsStore.handleCallStatusChanged({ callSid, status, conversationId });
 
@@ -179,6 +234,9 @@ export function handleVoiceCallUpdated(
       senderId,
       assigneeId,
       currentUserId,
+      currentRingAgentId,
+      acceptedByAgentId,
+      provider,
     })
   ) {
     callsStore.removeCall(callSid);

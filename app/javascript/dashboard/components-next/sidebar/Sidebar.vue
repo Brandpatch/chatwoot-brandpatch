@@ -100,6 +100,22 @@ const hasDataImport = computed(() => {
   );
 });
 
+// Accepts either flag, matching the gate the calls index and the conversation
+// call button already use: the premium channel_voice is switched off daily by
+// ReconcilePlanConfigService on community installs.
+const hasVoiceChannel = computed(() => {
+  return (
+    isFeatureEnabledonAccount.value(
+      accountId.value,
+      FEATURE_FLAGS.CHANNEL_VOICE
+    ) ||
+    isFeatureEnabledonAccount.value(
+      accountId.value,
+      FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH
+    )
+  );
+});
+
 const fetchConversationUnreadCounts = ([currentAccountId, isEnabled]) => {
   if (!currentAccountId) return;
 
@@ -562,6 +578,9 @@ const menuItems = computed(() => {
           label: t('SIDEBAR.CAPTAIN_SETTINGS'),
           activeOn: [
             'captain_assistants_settings_index',
+            'captain_assistants_settings_system_index',
+            'captain_assistants_settings_audience_index',
+            'captain_assistants_settings_schedule_index',
             'captain_assistants_guidelines_index',
             'captain_assistants_guardrails_index',
           ],
@@ -682,6 +701,15 @@ const menuItems = computed(() => {
           to: accountScopedRoute('conversation_reports'),
         },
         ...reportRoutes.value,
+        ...(hasVoiceChannel.value
+          ? [
+              {
+                name: 'Reports Voice',
+                label: t('SIDEBAR.REPORTS_VOICE'),
+                to: accountScopedRoute('voice_reports'),
+              },
+            ]
+          : []),
         {
           name: 'Reports CSAT',
           label: t('SIDEBAR.CSAT'),

@@ -4,7 +4,11 @@ import ContactsAPI from '../../contacts';
 
 class VoiceAPI extends ApiClient {
   constructor() {
-    super('voice', { accountScoped: true });
+    // Routes conference token/join/leave to the Brandpatch controllers under
+    // /custom. Without this the requests land on the Enterprise controller,
+    // which writes the same calls row through its own services and so skips
+    // our ring tracking and status handling entirely.
+    super('voice', { accountScoped: true, custom: true });
   }
 
   // eslint-disable-next-line class-methods-use-this

@@ -40,7 +40,8 @@ const voiceCallProvider = computed(() => getVoiceCallProvider(props.inbox));
 const isVoiceCallInbox = computed(
   () =>
     voiceCallProvider.value !== null &&
-    isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE)
+    (isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE) ||
+      isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH))
 );
 const isWhatsappVoiceInbox = computed(
   () => voiceCallProvider.value === VOICE_CALL_PROVIDERS.WHATSAPP

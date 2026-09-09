@@ -47,7 +47,13 @@ const agentActionLabel = computed(() => {
 });
 
 const resultLabel = computed(() => {
-  if (kind.value === CALL_KIND.MISSED) return t('CALLS_PAGE.ROW.NO_AGENT');
+  if (kind.value === CALL_KIND.MISSED) {
+    // A declined call was missed too, but somebody made that call — saying no
+    // agent answered would hide who did.
+    return props.call.endReason === 'agent_rejected' && props.call.agent
+      ? t('CALLS_PAGE.ROW.DECLINED_BY', { agentName: props.call.agent.name })
+      : t('CALLS_PAGE.ROW.NO_AGENT');
+  }
   if (kind.value === CALL_KIND.NO_REPLY) {
     return t('CALLS_PAGE.ROW.NO_CONTACT_ANSWER');
   }

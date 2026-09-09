@@ -7,6 +7,10 @@ Roles, sino también SLA y cualquier feature futura. Este README es un
 documento vivo: cada vez que se agregue un desarrollo nuevo bajo `custom/`,
 debería sumarse aquí su propia sección siguiendo el mismo formato.
 
+Este README documenta **código**. Para los servidores donde eso corre —las tres
+instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
+[INFRASTRUCTURE.md](INFRASTRUCTURE.md).
+
 ## Índice
 
 - [Por qué existe esta carpeta](#por-qué-existe-esta-carpeta)

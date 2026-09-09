@@ -248,10 +248,14 @@ export default {
         this.isATwilioChannel &&
         this.inbox.phone_number &&
         this.inbox.medium === 'sms' &&
-        this.isFeatureEnabledonAccount(
+        (this.isFeatureEnabledonAccount(
           this.accountId,
           FEATURE_FLAGS.CHANNEL_VOICE
-        )
+        ) ||
+          this.isFeatureEnabledonAccount(
+            this.accountId,
+            FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH
+          ))
       ) {
         visibleToAllChannelTabs = [
           ...visibleToAllChannelTabs,
@@ -421,6 +425,7 @@ export default {
       return (
         this.isAWhatsAppCloudChannel &&
         this.isEmbeddedSignupWhatsApp &&
+        this.healthData?.is_on_biz_app === false &&
         this.healthError?.type !== 'authorization' &&
         this.isFeatureEnabledonAccount(
           this.accountId,

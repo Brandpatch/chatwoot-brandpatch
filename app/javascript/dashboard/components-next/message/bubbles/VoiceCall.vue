@@ -243,6 +243,26 @@ const handleJoinCall = async () => {
     });
   }
 
+  // The floating widget renders from the store, and the call is dropped from
+  // there once the ring moves past this agent — on escalation, or when the
+  // queue runs out of agents and the call waits unassigned. Answering from the
+  // conversation would then connect the agent with no controls to mute or hang
+  // up, so put the call back first. WhatsApp is excluded: its accept path needs
+  // the SDP offer that only a live store entry carries.
+  if (
+    !isWhatsapp.value &&
+    !callsStore.calls.some(c => c.callSid === callSid.value)
+  ) {
+    callsStore.addCall({
+      callSid: callSid.value,
+      callId: call.value?.id,
+      provider: call.value?.provider,
+      conversationId: conversationId.value,
+      inboxId: inboxId.value,
+      callDirection: VOICE_CALL_DIRECTION.INBOUND,
+    });
+  }
+
   await joinCall({
     conversationId: conversationId.value,
     inboxId: inboxId.value,

@@ -37,6 +37,7 @@
       "RINGING": "Ringing",
       "IN_PROGRESS": "In progress",
       "NO_AGENT": "No agent answered this call",
+      "DECLINED_BY": "Declined by {agentName}",
       "NO_CONTACT_ANSWER": "Contact did not answer",
       "FAILED": "This call could not be connected",
       "YESTERDAY": "Yesterday"

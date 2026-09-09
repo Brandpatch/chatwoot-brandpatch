@@ -286,3 +286,10 @@
   display_name: SLA (Brandpatch)
   enabled: false
   column: feature_flags_ext_1
+# [brandpatch] Own reimplementation of Voice/Twilio calling, independent from
+# the Enterprise-licensed `channel_voice` flag. We use our own flag to avoid
+# depending on Enterprise-named flags per custom/ policy.
+- name: channel_voice_brandpatch
+  display_name: Voice Channel (Brandpatch)
+  enabled: false
+  column: feature_flags_ext_1

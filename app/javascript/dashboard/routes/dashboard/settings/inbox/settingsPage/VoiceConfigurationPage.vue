@@ -27,6 +27,8 @@ export default {
       inboundCallsEnabled: this.inbox.inbound_calls_enabled !== false,
       apiKeySid: this.inbox.api_key_sid || '',
       apiKeySecret: '',
+      ringTimeoutSeconds: this.inbox.ring_timeout_seconds || 30,
+      maxWaitSeconds: this.inbox.max_wait_seconds || 300,
       isUpdating: false,
       isTogglingInbound: false,
     };
@@ -70,6 +72,12 @@ export default {
     'inbox.inbound_calls_enabled'(val) {
       this.inboundCallsEnabled = val !== false;
     },
+    'inbox.ring_timeout_seconds'(val) {
+      this.ringTimeoutSeconds = val || 30;
+    },
+    'inbox.max_wait_seconds'(val) {
+      this.maxWaitSeconds = val || 300;
+    },
   },
   methods: {
     async handleInboundToggle(newValue) {
@@ -91,7 +99,11 @@ export default {
     async updateVoiceSettings() {
       this.isUpdating = true;
       try {
-        const channelPayload = { voice_enabled: this.voiceEnabled };
+        const channelPayload = {
+          voice_enabled: this.voiceEnabled,
+          ring_timeout_seconds: Number(this.ringTimeoutSeconds) || 30,
+          max_wait_seconds: Number(this.maxWaitSeconds) || 300,
+        };
 
         if (this.needsCredentials) {
           if (this.needsApiKeySid) {
@@ -183,6 +195,29 @@ export default {
         "
       >
         <woot-code :script="inbox.voice_status_webhook_url" lang="html" />
+      </SettingsFieldSection>
+    </div>
+
+    <div v-if="inbox.voice_enabled" class="flex flex-col gap-4">
+      <SettingsFieldSection
+        :label="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.LABEL')"
+        :help-text="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.DESCRIPTION')"
+      >
+        <NextInput
+          v-model="ringTimeoutSeconds"
+          type="number"
+          :placeholder="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.PLACEHOLDER')"
+        />
+      </SettingsFieldSection>
+      <SettingsFieldSection
+        :label="$t('INBOX_MGMT.VOICE_CONFIGURATION.MAX_WAIT.LABEL')"
+        :help-text="$t('INBOX_MGMT.VOICE_CONFIGURATION.MAX_WAIT.DESCRIPTION')"
+      >
+        <NextInput
+          v-model="maxWaitSeconds"
+          type="number"
+          :placeholder="$t('INBOX_MGMT.VOICE_CONFIGURATION.MAX_WAIT.PLACEHOLDER')"
+        />
       </SettingsFieldSection>
     </div>
 

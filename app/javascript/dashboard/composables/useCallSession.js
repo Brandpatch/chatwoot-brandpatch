@@ -10,7 +10,12 @@ import {
   sendWhatsappTerminateBeacon,
   cleanupWhatsappSession,
 } from 'dashboard/composables/useWhatsappCallSession';
-import { handleVoiceCallCreated } from 'dashboard/helper/voice';
+import {
+  handleVoiceCallCreated,
+  markCallDismissed,
+  markLocalCall,
+  clearLocalCall,
+} from 'dashboard/helper/voice';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import {
   CONTENT_TYPES,
@@ -20,13 +25,6 @@ import {
 import Timer from 'dashboard/helper/Timer';
 
 const isWhatsappCall = call => call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP;
-
-// Dismissed call sids must not be re-seeded by the conversation-load watcher.
-// Lives at module scope so all consumers share the same set.
-const dismissedCallSids = new Set();
-const markDismissed = callSid => {
-  if (callSid) dismissedCallSids.add(callSid);
-};
 
 // Globals attached once across all useCallSession() consumers — bubbles in a
 // long thread call this composable many times, and a per-instance Timer +
@@ -107,6 +105,7 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
       TwilioVoiceClient.endClientCall();
       globalDurationTimer?.stop();
       callsStore.clearActiveCall();
+      clearLocalCall(callSid);
     }
   };
 
@@ -140,8 +139,19 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         return { callId: call.callId };
       }
 
+      // Claim the call before any await: device initialization fetches a token
+      // and registers with Twilio, and an account-wide broadcast arriving in
+      // that window (voice_call.accepted from this same tab, or the
+      // ring_reassigned of an escalation this click just raced) would otherwise
+      // not recognize the call as ours and tear it down mid-join.
+      // Mirrors useWhatsappCallSession's activeCallId.
+      markLocalCall(callSid);
+
       const device = await TwilioVoiceClient.initializeDevice(inboxId);
-      if (!device) return null;
+      if (!device) {
+        clearLocalCall(callSid);
+        return null;
+      }
 
       const joinResponse = await VoiceAPI.joinConference({
         conversationId,
@@ -161,10 +171,11 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
       return { conferenceSid: joinResponse?.conference_sid };
     } catch (error) {
       useAlert(error?.response?.data?.error || t('CONTACT_PANEL.CALL_FAILED'));
+      if (!isWhatsappCall(call)) clearLocalCall(callSid);
       // 409 = the call already ended before accept landed (e.g. caller hung up mid-ring).
       if (error?.response?.status === 409) {
         TwilioVoiceClient.endClientCall();
-        markDismissed(callSid);
+        markCallDismissed(callSid);
         callsStore.dismissCall(callSid);
       } else if (!isWhatsappCall(call)) {
         // Tear down the Twilio Device on any other join error so a retry
@@ -209,13 +220,13 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         TwilioVoiceClient.endClientCall();
       }
     } finally {
-      markDismissed(callSid);
+      markCallDismissed(callSid);
       callsStore.dismissCall(callSid);
     }
   };
 
   const dismissCall = callSid => {
-    markDismissed(callSid);
+    markCallDismissed(callSid);
     callsStore.dismissCall(callSid);
   };
 
@@ -255,9 +266,9 @@ export function useCallSession() {
 
   // Cable broadcasts (voice_call.incoming / message.created) are one-shot, so
   // on a hard refresh they leave the calls store empty. Seed it from any
-  // ringing voice_call message in the conversation cache. Skip calls the
-  // agent has already dismissed locally so they don't re-pop on the next
-  // conversation update.
+  // ringing voice_call message in the conversation cache. handleVoiceCallCreated
+  // skips calls already dismissed (locally or via a real-time accepted/ended
+  // event) so they don't re-pop on the next conversation update.
   const seedCallsFromHydratedMessages = () => {
     const conversations = store.getters.getAllConversations || [];
     const currentUserId = store.getters.getCurrentUserID;
@@ -266,8 +277,6 @@ export function useCallSession() {
       (conv.messages || []).forEach(msg => {
         if (msg.content_type !== CONTENT_TYPES.VOICE_CALL) return;
         if (msg.call?.status !== VOICE_CALL_STATUS.RINGING) return;
-        const callSid = msg.call?.provider_call_id;
-        if (callSid && dismissedCallSids.has(callSid)) return;
         handleVoiceCallCreated(msg, currentUserId, currentUserAvailability);
       });
     });
