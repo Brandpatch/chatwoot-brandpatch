@@ -63,7 +63,9 @@ jobs:
           script: |
             cd ~/chatwoot
             echo "${{ secrets.GHCR_DEPLOY_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker image tag ghcr.io/brandpatch/chatwoot-brandpatch:latest ghcr.io/brandpatch/chatwoot-brandpatch:previous || true
             docker compose -f docker-compose.production.yaml pull rails sidekiq
             docker compose -f docker-compose.production.yaml up -d
             docker compose -f docker-compose.production.yaml exec -T rails bundle exec rails db:migrate
+            docker image prune -f
             docker logout ghcr.io
