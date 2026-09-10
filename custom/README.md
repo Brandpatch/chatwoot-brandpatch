@@ -32,6 +32,18 @@ instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
   - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-1)
   - [Bugs encontrados durante el QA (ya corregidos)](#bugs-encontrados-durante-el-qa-ya-corregidos-1)
   - [Comandos útiles (SSH)](#comandos-útiles-ssh-1)
+- [Canal de voz (Twilio)](#canal-de-voz-twilio)
+  - [Feature flag](#feature-flag-2)
+  - [Tablas y columnas propias](#tablas-y-columnas-propias)
+  - [Cómo funciona una llamada entrante](#cómo-funciona-una-llamada-entrante)
+  - [Enrutamiento, escalación y cola](#enrutamiento-escalación-y-cola)
+  - [Aprovisionamiento en Twilio](#aprovisionamiento-en-twilio)
+  - [Mapa de archivos (backend)](#mapa-de-archivos-backend-2)
+  - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-2)
+  - [Endpoints](#endpoints)
+  - [Bugs encontrados durante el QA (ya corregidos)](#bugs-encontrados-durante-el-qa-ya-corregidos-2)
+  - [Pendientes conocidos](#pendientes-conocidos)
+  - [Comandos útiles (SSH)](#comandos-útiles-ssh-2)
 
 ## Por qué existe esta carpeta
 
@@ -368,3 +380,314 @@ end
 Internal::ReconcilePlanConfigService.new.perform
 puts Account.find(ID).feature_enabled?('custom_sla') ? 'ACTIVO ✓' : 'DESACTIVADO ✗'
 ```
+
+## Canal de voz (Twilio)
+
+Reimplementación propia de llamadas de voz sobre Twilio, independiente del
+`channel_voice` de Enterprise: llamadas entrantes y salientes atendidas desde
+el navegador con el SDK de Twilio Voice, enrutamiento entre agentes con
+escalación y cola, grabación de llamadas, un widget flotante en el dashboard,
+y una sección de Llamadas en Informes.
+
+Es, con diferencia, el desarrollo más grande bajo `custom/`: 28 de los 59
+archivos Ruby, más un frontend propio y nueve migraciones.
+
+**No se creó un canal nuevo.** La voz se monta encima de `Channel::TwilioSms`
+mediante la columna `voice_enabled`, así que un mismo inbox puede tener SMS y
+voz. La consecuencia práctica —desde un inbox de voz se pueden enviar SMS al
+cliente, y cuestan— se relevó y se decidió dejarla así.
+
+### Feature flag
+
+`channel_voice_brandpatch` (`config/features.yml`, `column:
+feature_flags_ext_1`, `enabled: false`). Activable por cuenta desde Super
+Admin → Accounts → editar cuenta → "Voice Channel (Brandpatch)", o por
+consola:
+
+```ruby
+Account.find(ID).enable_features!('channel_voice_brandpatch')
+Account.find(ID).disable_features!('channel_voice_brandpatch')
+```
+
+Se llama así y no `channel_voice` por la regla de oro #1: ese nombre es el
+flag de Enterprise y reutilizarlo activaría su código con nuestros datos.
+
+**La voz es opt-in en dos niveles.** El flag habilita la cuenta para *crear*
+inboxes de voz; cada inbox decide por separado con `voice_enabled`. Activar el
+flag en una cuenta que ya tiene inboxes de Twilio **no les enciende la voz**.
+
+### Tablas y columnas propias
+
+| Tabla / columna | Qué guarda |
+|---|---|
+| `calls` | Una fila por llamada: `provider_call_id` (el SID de Twilio, único por proveedor), `direction`, `status`, `started_at`, `duration_seconds`, `end_reason`, `accepted_by_agent_id`, `current_ring_agent_id`, `meta` (jsonb), `transcript` |
+| `call_ring_attempts` | Un **turno de timbre** por agente y llamada: `agent_id`, `rang_at`, `ended_at`, `outcome`. Es lo que permite atribuir una llamada perdida a un agente concreto |
+| `channel_twilio_sms.voice_enabled` | Enciende la voz en ese inbox |
+| `channel_twilio_sms.twiml_app_sid` | La TwiML App que el código crea en Twilio |
+| `channel_twilio_sms.api_key_secret` | Credencial para acuñar los tokens del SDK |
+
+Estados de una llamada (`Custom::Call::STATUSES`): `ringing`, `in_progress`,
+`completed`, `no_answer`, `failed`, `rejected`. Los cuatro últimos son
+terminales.
+
+Resultados de un turno (`Custom::CallRingAttempt::OUTCOMES`): `answered`,
+`timeout`, `rejected`, `caller_hangup`, `superseded`. Para las métricas, sólo
+`timeout` y `rejected` cuentan como perdida atribuible al agente
+(`MISSED_OUTCOMES`); `caller_hangup` y `superseded` no son culpa suya.
+
+**`db/schema.rb` está desactualizado** y no refleja `call_ring_attempts` ni
+`current_ring_agent_id`. No es un problema para instalar —`db:chatwoot_prepare`
+carga el esquema y después migra— pero no sirve como referencia; mirar la base.
+
+### Cómo funciona una llamada entrante
+
+1. Twilio recibe la llamada y hace POST al `voice_url` del número, que apunta
+   a `/twilio/voice/custom/call/<numero>`.
+2. `Custom::Twilio::VoiceController#call_twiml` valida la firma de Twilio,
+   resuelve o crea la llamada con `InboundCallBuilder` y devuelve el TwiML que
+   mete al cliente en una conferencia.
+3. `CallRouter` elige el primer agente y se abre su turno en
+   `call_ring_attempts`. Se arma `CallRingTimeoutJob` con el timeout del inbox.
+4. El agente ve el widget flotante y contesta. El navegador se conecta por el
+   SDK y `ConferenceController#create` reclama la llamada en exclusiva.
+5. Al terminar, Twilio postea a `/status/` y a `/conference_status/`, y la
+   grabación llega por `/recording_status/`, que la adjunta vía ActiveStorage.
+
+**Cuatro escritores compiten por el estado final** de una llamada:
+
+| Escritor | Cuándo |
+|---|---|
+| `Custom::Voice::StatusUpdateService` | webhook `/status/` de Twilio |
+| `Custom::Voice::Conference::Manager` | eventos de conferencia (entra, sale, termina) |
+| `ConferenceController#destroy` | el agente cuelga o declina desde el widget |
+| `CallRingTimeoutJob#expire_call!` | se agotó `max_wait_seconds` con la llamada en cola |
+
+El punto de entrada único es
+`Custom::Voice::CallStatus::Manager#process_status_update`, y **gana el primero
+que llega**: el resto rebota contra `return if
+TERMINAL_STATUSES.include?(call.status)`. Tenerlo presente antes de tocar
+cualquier cosa que escriba el estado — un bug real salió de ahí, con dos
+escritores separados por menos de 200 ms.
+
+### Enrutamiento, escalación y cola
+
+Si el agente no contesta dentro de `ring_timeout_seconds` (30 s por defecto),
+`CallRingTimeoutJob` cierra su turno como `timeout` y
+`CallEscalationService` ofrece la llamada al siguiente agente elegible,
+excluyendo a los que ya sonaron (`meta['rang_agent_ids']`). Si no queda
+ninguno, la llamada se desasigna y queda en cola hasta `max_wait_seconds`
+(300 s por defecto), donde cualquier agente puede tomarla.
+
+Declinar desde el widget hace lo mismo que un timeout —pasa al siguiente— pero
+cierra el turno propio como `rejected`, que sí cuenta contra ese agente.
+
+### Aprovisionamiento en Twilio
+
+**No hay que configurar nada a mano en la consola de Twilio.** Al crear el
+inbox con voz, `Custom::Twilio::VoiceWebhookSetupService` crea la TwiML App y
+configura el número; al apagar la voz, `VoiceTeardownService` borra la app y
+limpia los webhooks del número.
+
+Dos campos distintos, dos endpoints distintos, y confundirlos es un error
+silencioso:
+
+| Campo en Twilio | Debe apuntar a |
+|---|---|
+| Manejador principal de voz (`voice_url`) | `/twilio/voice/custom/call/<numero>` |
+| Cambios de estado (`status_callback`) | `/twilio/voice/custom/status/<numero>` |
+
+Poner el de status en el manejador principal hace que la llamada entrante
+reciba un `204` vacío en vez de TwiML, y Twilio la corta con el error 12300.
+La consola lo acepta sin protestar; sólo se nota cuando entra una llamada real.
+
+La TwiML App sirve para las **salientes desde el navegador**; el `voice_url`
+del número, para las **entrantes**. Se necesitan las dos.
+
+**Trampas del aprovisionamiento:**
+
+- `provision_twiml_app` arranca con `return if twiml_app_sid.present?`, así que
+  **volver a guardar el inbox no repara los webhooks del número**. No existe un
+  camino de reparación desde la aplicación: si alguien los edita a mano y los
+  rompe, hay que arreglarlos por API o por consola.
+- El teardown está registrado como `after_commit ... on: :update, if:
+  :voice_disabled?`. **No hay callback de destroy**, así que borrar el inbox
+  deja la TwiML App viva y el número apuntando al ambiente viejo, sin avisar.
+  Para liberar un número: apagar la voz, verificar contra Twilio que el
+  `voice_url` quedó vacío, y recién entonces borrar el inbox.
+- Ambos servicios registran los errores y siguen, así que un fallo de red con
+  Twilio no interrumpe la operación pero tampoco se nota.
+
+### Mapa de archivos (backend)
+
+| Archivo | Qué hace |
+|---|---|
+| `config/features.yml` | Flag `channel_voice_brandpatch` en `feature_flags_ext_1` |
+| `custom/config/initializers/02_voice_patches.rb` | Punto de entrada de la feature |
+| `custom/app/models/custom/call.rb` | Modelo `Custom::Call`: estados, difusión por websocket, URL de grabación, configuración de STUN |
+| `custom/app/models/custom/call_ring_attempt.rb` | Turnos de timbre y qué resultados cuentan como perdida |
+| `custom/app/models/custom/channel/twilio_sms.rb` | Voz sobre el canal de Twilio: webhooks, timeouts, aprovisionamiento y teardown |
+| `custom/app/controllers/custom/twilio/voice_controller.rb` | Los cuatro webhooks públicos que llama Twilio |
+| `custom/app/controllers/custom/api/v1/accounts/conference_controller.rb` | Token del SDK, entrar a la conferencia y colgar/declinar |
+| `custom/app/controllers/custom/api/v1/accounts/calls_controller.rb` | Listado de llamadas para Informes |
+| `custom/app/controllers/custom/api/v1/accounts/call_stats_controller.rb` | Métricas agregadas de Informes |
+| `custom/app/controllers/custom/api/v1/accounts/contacts/calls_controller.rb` | Iniciar una llamada saliente a un contacto |
+| `custom/app/finders/custom/call_finder.rb` | Filtrado y paginación del listado |
+| `custom/app/services/custom/voice/inbound_call_builder.rb` | Crea contacto, conversación y llamada para una entrante |
+| `custom/app/services/custom/voice/outbound_call_builder.rb` | Lo mismo para una saliente |
+| `custom/app/services/custom/voice/call_router.rb` | Elige el siguiente agente elegible |
+| `custom/app/services/custom/voice/call_escalation_service.rb` | Pasa el turno al siguiente agente o manda a cola |
+| `custom/app/services/custom/voice/ring_attempt_tracker.rb` | Abre y cierra los turnos de timbre |
+| `custom/app/services/custom/voice/call_status/manager.rb` | **Punto de entrada único** para el estado de la llamada |
+| `custom/app/services/custom/voice/status_update_service.rb` | Traduce el webhook de status de Twilio |
+| `custom/app/services/custom/voice/conference/manager.rb` | Eventos de conferencia: entradas, salidas y fin |
+| `custom/app/services/custom/voice/call_message_builder.rb` | El mensaje de la llamada en la conversación |
+| `custom/app/services/custom/voice/call_stats_builder.rb` | Agregados para Informes |
+| `custom/app/services/custom/voice/recording_status_service.rb` | Recibe el aviso de grabación lista |
+| `custom/app/services/custom/twilio/voice_webhook_setup_service.rb` | Crea la TwiML App y configura el número |
+| `custom/app/services/custom/twilio/voice_teardown_service.rb` | Borra la TwiML App y limpia el número |
+| `custom/app/services/custom/voice/provider/twilio/adapter.rb` | Iniciar llamadas contra la API de Twilio |
+| `custom/app/services/custom/voice/provider/twilio/conference_service.rb` | Conferencia: reclamo exclusivo, unir y terminar |
+| `custom/app/services/custom/voice/provider/twilio/token_service.rb` | Acuña el JWT del SDK; la identidad es `agent-<id>-account-<id>` |
+| `custom/app/services/custom/voice/provider/twilio/recording_attachment_service.rb` | Descarga la grabación y la adjunta |
+| `custom/app/jobs/custom/voice/call_ring_timeout_job.rb` | Vence el turno y dispara la escalación |
+| `custom/app/jobs/custom/voice/provider/twilio/recording_attachment_job.rb` | Adjunta la grabación en segundo plano (cola `low`) |
+| `custom/app/views/custom/api/v1/accounts/calls/index.json.jbuilder` | Listado de llamadas |
+| `custom/app/views/custom/api/v1/models/_call.json.jbuilder` | Serialización de una llamada |
+
+### Mapa de archivos (frontend)
+
+| Archivo | Qué hace |
+|---|---|
+| `app/javascript/dashboard/featureFlags.js` | Constante del flag |
+| `app/javascript/dashboard/api/channel/voice/twilioVoiceClient.js` | Envoltorio del SDK de Twilio Voice |
+| `app/javascript/dashboard/api/channel/voice/voiceAPIClient.js` | Cliente de nuestros endpoints |
+| `app/javascript/dashboard/composables/useCallSession.js` | Estado de la sesión de llamada en el dashboard |
+| `app/javascript/dashboard/helper/voice.js` | Utilidades de formato y estado |
+| `app/javascript/dashboard/components-next/call/FloatingCallWidget.vue` | Widget flotante: arrastrable y minimizable |
+| `app/javascript/dashboard/components-next/call/MinimizedCallBubble.vue` | La burbuja cuando está minimizado |
+| `app/javascript/dashboard/components-next/call/CallCard.vue` | Tarjeta de una llamada dentro del widget |
+| `app/javascript/dashboard/components-next/message/bubbles/VoiceCall.vue` | Burbuja de la llamada en la conversación, con el reproductor |
+| `app/javascript/dashboard/components-next/Contacts/VoiceCallButton.vue` | Botón para llamar a un contacto |
+| `app/javascript/dashboard/routes/dashboard/settings/inbox/channels/Voice.vue` | Alta de un inbox de voz |
+| `app/javascript/dashboard/routes/dashboard/settings/inbox/settingsPage/VoiceConfigurationPage.vue` | Configuración del inbox: timeouts y entrantes |
+| `app/javascript/dashboard/routes/dashboard/settings/reports/VoiceChannelsReport.vue` | Sección Llamadas en Informes |
+| `app/javascript/dashboard/routes/dashboard/settings/reports/components/VoiceMetricCards.vue` | Tarjetas de métricas |
+| `app/javascript/dashboard/routes/dashboard/settings/reports/components/VoiceStatsTable.vue` | Tabla por agente |
+
+La posición del widget y si está minimizado se guardan en `localStorage`
+(`voiceWidgetPosition`, `voiceWidgetMinimized`), así que sobreviven un
+refresco. Al entrar una llamada nueva el widget se expande solo, a propósito.
+
+### Endpoints
+
+**Webhooks públicos** (los llama Twilio, van firmados y se verifica la firma):
+
+```
+POST /twilio/voice/custom/call/:phone               TwiML de la llamada
+POST /twilio/voice/custom/status/:phone             cambios de estado
+POST /twilio/voice/custom/conference_status/:phone  eventos de conferencia
+POST /twilio/voice/custom/recording_status/:phone   grabación lista
+```
+
+**API del dashboard** (bajo `/api/v1/accounts/:account_id/`):
+
+```
+GET    inboxes/:inbox_id/conference/token   token del SDK
+POST   inboxes/:inbox_id/conference         entrar a la conferencia
+DELETE inboxes/:inbox_id/conference         colgar o declinar
+POST   contacts/:id/call                    iniciar una saliente
+GET    calls                                listado para Informes
+GET    call_stats                           métricas agregadas
+```
+
+### Bugs encontrados durante el QA (ya corregidos)
+
+Cada uno tiene su PR; se listan porque varios costaron encontrar y describen
+trampas que conviene no repetir.
+
+1. **Las grabaciones no se veían y las llamadas se servían desde Enterprise**
+   (#37). Tres clientes del frontend apuntaban a los endpoints de
+   `enterprise/` en vez de a los nuestros. Incluye una trampa de ActiveStorage
+   entre modelos que comparten tabla.
+
+2. **La espera del cliente se reportaba mal y las no atendidas no contaban
+   como perdidas** (#38).
+
+3. **El widget se perdía cuando el timbre pasaba al siguiente agente** (#39):
+   un agente que ya había contestado veía desaparecer su llamada. La causa era
+   que `shouldShowCall` miraba sólo el timbre y no si la llamada era suya.
+
+4. **Borrar un inbox o contestar desde el widget fallaba fuera de la primera
+   cuenta** (#40). Se difundía la clave primaria de la conversación en vez de
+   su `display_id`, algo que sólo funciona mientras existe una sola cuenta —
+   razón por la que **siempre hay que probar con una segunda cuenta en dev**.
+   Incluye las reglas de borrado en cascada de las asociaciones de llamadas.
+
+5. **Declinar cortaba la llamada en vez de pasarla, y colgar no quedaba
+   registrado** (#41). El `DELETE` del dashboard y el webhook de status de
+   Twilio competían por marcar el estado final con menos de 200 ms de
+   diferencia; ganaba el webhook y el resultado del agente se perdía en
+   silencio. Se resolvió invirtiendo el orden: primero se registra, después se
+   desarma la conferencia.
+
+### Pendientes conocidos
+
+- **Falta una verificación de autorización en la pata del agente** del webhook
+  de voz: la unión a la conferencia se resuelve por el identificador de la
+  llamada sin contrastarlo con el turno de timbre vigente. El endpoint del
+  dashboard sí hace valer el reclamo exclusivo; este camino no. Detectado por
+  revisión automática de seguridad y confirmado leyendo el código. **Es el
+  pendiente de mayor prioridad.**
+- **Borrar un inbox de voz no corre el teardown de Twilio** (ver arriba).
+- **Contestar una llamada desde la cola sobrescribe un rechazo previo** del
+  mismo agente, así que una decline puede no quedar contada en las métricas.
+  Caso borde conocido y aceptado.
+- **La duración es inconsistente**: según qué escritor gane, se guarda el total
+  de Twilio (que incluye el timbrado) o el tiempo de conversación calculado
+  desde `started_at`. Hay que elegir una definición y un escritor autoritativo.
+- **Colgar una llamada ya cerrada devuelve 500.**
+
+### Comandos útiles (SSH)
+
+Todos con `docker compose exec rails bundle exec rails runner "..."`.
+
+**Estado del flag en una cuenta:**
+```ruby
+puts Account.find(ID).feature_enabled?('channel_voice_brandpatch')
+```
+
+**Inspeccionar una llamada y sus turnos:**
+```ruby
+c = Custom::Call.find(ID)
+puts "#{c.direction} #{c.status} end_reason=#{c.end_reason} dur=#{c.duration_seconds}"
+puts "contesto: #{c.accepted_by_agent&.available_name}"
+Custom::CallRingAttempt.where(call_id: c.id).order(:id).each do |a|
+  puts "  agente #{a.agent_id} #{a.rang_at} -> #{a.ended_at} #{a.outcome}"
+end
+```
+
+**Verificar que un inbox quedó bien aprovisionado en Twilio:**
+```ruby
+ch = Inbox.find(ID).channel
+n  = ch.client.incoming_phone_numbers.list(phone_number: ch.phone_number).first
+puts "voice_url esperado: #{ch.voice_call_webhook_url}"
+puts "voice_url real:     #{n.voice_url}"
+puts "status_callback:    #{n.status_callback}"
+puts "twiml_app_sid:      #{ch.twiml_app_sid.present? ? 'presente' : 'NULO'}"
+```
+
+**Liberar un número correctamente (los dos pasos, en este orden):**
+```ruby
+ch = Inbox.find(ID).channel
+ch.update!(voice_enabled: false)   # dispara el teardown
+# verificar que voice_url quedo vacio con el comando anterior
+Inbox.find(ID).destroy!
+```
+
+**Ver si una llamada entrante llegó al endpoint correcto** (desde el host, no
+por `rails runner`):
+```bash
+grep -E '/twilio/voice/custom/[a-z_]+/NUMERO' /var/log/nginx/access.log | tail
+```
+Si todas las líneas dicen `/status/` y ninguna `/call/`, el manejador
+principal del número está mal configurado.
