@@ -3,7 +3,9 @@
 Esta carpeta contiene **todos los desarrollos propios de BrandPatch** que
 reimplementan funcionalidad de Chatwoot Enterprise sin depender de
 `enterprise/` (que permanece intacta y sin usar en el proyecto). Actualmente
-incluye **Custom Roles** y **SLA** (ver detalle de cada uno abajo).
+incluye **Custom Roles**, **SLA** y el **canal de voz sobre Twilio** (ver
+detalle de cada uno abajo). El canal de voz es el más grande de los tres por
+un margen amplio.
 
 **Antes de tocar cualquier archivo bajo `custom/`, leé primero
 `custom/README.md`** — tiene el mapa de archivos completo, los comandos de
@@ -130,3 +132,43 @@ notificaciones a agentes, reportes, y asignación manual o via automatizaciones.
   tienen guards sobre el flag `sla` (enterprise) — cualquier funcionalidad
   nueva que dependa de esos puntos de extensión necesitará su propio override
   en `Custom::` siguiendo el mismo patrón ya establecido.
+
+## Canal de voz / Twilio (implementado y en producción, ver README.md)
+
+Llamadas de voz entrantes y salientes sobre Twilio, atendidas desde el
+navegador: enrutamiento entre agentes con escalación y cola, grabaciones,
+widget flotante y sección de Llamadas en Informes.
+
+- **Feature flag**: `channel_voice_brandpatch` (`feature_flags_ext_1`,
+  `enabled: false`). Habilita a la cuenta para *crear* inboxes de voz; cada
+  inbox se enciende aparte con `voice_enabled`. Activar el flag **no** enciende
+  la voz en inboxes de Twilio que ya existan.
+- **Tablas propias**: `calls` y `call_ring_attempts`, más tres columnas sobre
+  `channel_twilio_sms`. La voz se monta encima de `Channel::TwilioSms`, no es
+  un canal nuevo.
+- **`db/schema.rb` está desactualizado** y no refleja `call_ring_attempts` ni
+  `current_ring_agent_id` — no usarlo como referencia, mirar la base.
+
+**Antes de tocar cualquier cosa que escriba el estado de una llamada**, leer
+la sección del README: hay **cuatro escritores compitiendo** por el estado
+final (el webhook de status de Twilio, el manager de conferencia, el `destroy`
+del dashboard y el job de timeout) y el punto de entrada único es
+`Custom::Voice::CallStatus::Manager#process_status_update`. Gana el primero
+que llega. Un bug real ya salió de ahí, con menos de 200 ms de diferencia
+entre dos escritores.
+
+**Antes de tocar el aprovisionamiento en Twilio**, saber que `provision_twiml_app`
+sale temprano si ya hay `twiml_app_sid`, y que el teardown está registrado
+sólo `on: :update`. Es decir: volver a guardar el inbox no repara nada, y
+borrarlo no limpia Twilio. Los dos pasos correctos para liberar un número
+están en el README.
+
+**Al probar en dev, usar siempre una segunda cuenta.** Varios bugs de voz sólo
+aparecían fuera de la cuenta 1, porque se difundía la clave primaria de la
+conversación en vez de su `display_id` y ambas coinciden mientras existe una
+sola cuenta.
+
+- **Estado**: en producción desde el 2026-09-09, validado con un smoke test
+  completo. Hay **pendientes conocidos** listados en el README, y el de mayor
+  prioridad es una verificación de autorización que falta en la pata del
+  agente del webhook de voz — revisarlo antes de ampliar la feature.
