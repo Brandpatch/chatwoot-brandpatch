@@ -193,7 +193,7 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
     }
   };
 
-  // Await provider-side reject before dismissing the local entry; if the API
+  // Await provider-side reject before dropping the local entry; if the API
   // call fails the call should stay surfaced so the agent can retry instead of
   // disappearing while the backend still rings.
   const rejectIncomingCall = async callSid => {
@@ -209,8 +209,9 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         }
       } else if (call?.inboxId && call?.conversationId) {
         // Twilio incoming reject: agent hasn't joined the Device yet, so
-        // endClientCall is a no-op. End the conference server-side instead
-        // so Twilio hangs up the inbound leg.
+        // endClientCall is a no-op. The backend hands the call to the next
+        // eligible agent and closes this agent's turn as rejected; the caller
+        // stays in the conference throughout.
         await VoiceAPI.leaveConference({
           inboxId: call.inboxId,
           conversationId: call.conversationId,
@@ -220,17 +221,19 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         TwilioVoiceClient.endClientCall();
       }
     } finally {
-      markCallDismissed(callSid);
+      // Drop the card from this agent's widget — the call is no longer theirs
+      // — but deliberately do NOT markCallDismissed: a rejected Twilio call is
+      // still live and escalating, and that set filters the sid out of every
+      // later event for the whole session. Marking it here left the agent
+      // blind to the call moving on, which read as "the reject did nothing".
+      // Terminal calls are still marked, from the cable handlers and the
+      // status-change path where the call really is over.
+      if (isWhatsappCall(call)) markCallDismissed(callSid);
       callsStore.dismissCall(callSid);
     }
   };
 
-  const dismissCall = callSid => {
-    markCallDismissed(callSid);
-    callsStore.dismissCall(callSid);
-  };
-
-  return { endCall, joinCall, rejectIncomingCall, dismissCall };
+  return { endCall, joinCall, rejectIncomingCall };
 };
 
 const buildReactiveSurface = callsStore => {
