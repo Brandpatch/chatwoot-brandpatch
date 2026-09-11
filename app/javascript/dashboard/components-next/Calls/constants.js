@@ -1,6 +1,7 @@
 import {
   VOICE_CALL_STATUS,
   VOICE_CALL_DIRECTION,
+  isMissedInboundVoiceCall,
 } from 'dashboard/components-next/message/constants';
 
 export const CALL_KIND = {
@@ -11,11 +12,6 @@ export const CALL_KIND = {
   NO_REPLY: 'no_reply',
   FAILED: 'failed',
 };
-
-// An agent was on the call. Mirrors Custom::Call's answered scope: a declined
-// call carries the agent who declined it, so the agent alone is not enough.
-const isAttended = call =>
-  !!call.agent && call.status !== VOICE_CALL_STATUS.REJECTED;
 
 // The API returns display values: status (ringing/in-progress/completed/
 // no-answer/failed) and direction (inbound/outbound). The list UI presents
@@ -38,11 +34,16 @@ export const getCallKind = call => {
   }
   // Every other terminal inbound call nobody attended: the caller hung up while
   // it rang, which Twilio reports as 'completed', or an agent declined it.
-  // Reading either as answered contradicts the unattended count the reports
-  // show for the same period. This mirrors Custom::Call's answered scope, so
-  // the list and the figures stay in step. Outbound always carries the agent
-  // who dialled, so it never applies there.
-  if (isInbound && !isAttended(call)) return CALL_KIND.MISSED;
+  // Outbound always carries the agent who dialled, so it never applies there.
+  if (
+    isMissedInboundVoiceCall({
+      status: call.status,
+      hasAgent: !!call.agent,
+      isInbound,
+    })
+  ) {
+    return CALL_KIND.MISSED;
+  }
   return isInbound ? CALL_KIND.INCOMING : CALL_KIND.OUTGOING;
 };
 

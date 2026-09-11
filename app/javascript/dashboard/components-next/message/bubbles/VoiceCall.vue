@@ -11,6 +11,7 @@ import {
   VOICE_CALL_END_REASON,
   MESSAGE_TYPES,
   ATTACHMENT_TYPES,
+  isMissedInboundVoiceCall,
 } from '../constants';
 import { useCallActions } from 'dashboard/composables/useCallSession';
 import { useWhatsappCallSession } from 'dashboard/composables/useWhatsappCallSession';
@@ -81,21 +82,34 @@ const isOutbound = computed(() => {
 const isWhatsapp = computed(
   () => call.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
-const isFailed = computed(() =>
-  [
-    VOICE_CALL_STATUS.NO_ANSWER,
-    VOICE_CALL_STATUS.FAILED,
-    VOICE_CALL_STATUS.REJECTED,
-  ].includes(status.value)
+const acceptedByAgentId = computed(() => call.value?.acceptedByAgentId);
+// Inbound asks whether anybody actually took the call, not what the provider
+// called it: a caller who hangs up while it rings lands on 'completed' with no
+// agent, and going by the status read that as answered while the call list and
+// the reports counted it missed. Outbound keeps the status, since it always
+// carries the agent who dialled and attendance says nothing there.
+const isMissedInbound = computed(() =>
+  isMissedInboundVoiceCall({
+    status: status.value,
+    hasAgent: acceptedByAgentId.value != null,
+    isInbound: !isOutbound.value,
+  })
 );
-const isMissedInbound = computed(() => isFailed.value && !isOutbound.value);
+const isFailed = computed(
+  () =>
+    isMissedInbound.value ||
+    [
+      VOICE_CALL_STATUS.NO_ANSWER,
+      VOICE_CALL_STATUS.FAILED,
+      VOICE_CALL_STATUS.REJECTED,
+    ].includes(status.value)
+);
 const endReason = computed(() => call.value?.endReason);
 const wasDeclinedByAgent = computed(
   () =>
     isMissedInbound.value &&
     endReason.value === VOICE_CALL_END_REASON.AGENT_REJECTED
 );
-const acceptedByAgentId = computed(() => call.value?.acceptedByAgentId);
 const conversationAssignee = computed(() => {
   const conversation = store.getters.getConversationById?.(
     conversationId?.value
@@ -142,12 +156,14 @@ const handledBy = computed(() =>
 );
 
 const labelKey = computed(() => {
-  if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
+  // Before the status map on purpose: an inbound call nobody took can still be
+  // sitting at 'completed', which the map would label "Call ended".
   if (isFailed.value) {
     return isOutbound.value
       ? 'CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL'
       : 'CONVERSATION.VOICE_CALL.MISSED_CALL';
   }
+  if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
   // RINGING or an as-yet-unknown/initial status: orient purely by direction so an
   // outbound call never falls through to the "Incoming call" label.
   return isOutbound.value
@@ -156,15 +172,8 @@ const labelKey = computed(() => {
 });
 
 const subtext = computed(() => {
-  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
-  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
-    return [handledBy.value, formattedDuration.value]
-      .filter(Boolean)
-      .join(' · ');
-  }
-  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
-    return handledBy.value;
-  }
+  // Same precedence as labelKey: a missed call parked at 'completed' would
+  // otherwise fall into the branch below and print a duration nobody spoke for.
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
     if (isOutbound.value) {
@@ -177,6 +186,15 @@ const subtext = computed(() => {
     }
     return t('CONVERSATION.VOICE_CALL.MISSED_CALL_INBOUND_SUBTEXT');
   }
+  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
+  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+    return [handledBy.value, formattedDuration.value]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    return handledBy.value;
+  }
   // RINGING or an as-yet-unknown/initial status.
   if (isOutbound.value) {
     return handledBy.value || t('CONVERSATION.VOICE_CALL.CALLING');
@@ -185,6 +203,7 @@ const subtext = computed(() => {
 });
 
 const iconName = computed(() => {
+  if (isMissedInbound.value) return ICON_MAP[VOICE_CALL_STATUS.NO_ANSWER];
   if (ICON_MAP[status.value]) return ICON_MAP[status.value];
   return isOutbound.value
     ? 'i-ph-phone-outgoing-bold'
