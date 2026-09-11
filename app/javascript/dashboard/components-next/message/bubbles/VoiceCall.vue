@@ -25,14 +25,16 @@ import BaseBubble from 'next/message/bubbles/Base.vue';
 import AudioChip from 'next/message/chips/Audio.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
-const LABEL_MAP = {
-  [VOICE_CALL_STATUS.IN_PROGRESS]: 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS',
-  [VOICE_CALL_STATUS.COMPLETED]: 'CONVERSATION.VOICE_CALL.CALL_ENDED',
-};
-
+// A finished call is the one case where the status says nothing a reader
+// needs: 'completed' covers both directions and is where almost every call in
+// a mature inbox ends up, so it is answered by direction instead — same as the
+// ringing case at the bottom of labelKey and iconName.
+//
+// The failure states keep one icon for both directions on purpose: the crossed
+// phone means "never connected", which is true either way, and their labels
+// already say which direction it was.
 const ICON_MAP = {
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'i-ph-phone-call-bold',
-  [VOICE_CALL_STATUS.COMPLETED]: 'i-ph-phone-bold',
   [VOICE_CALL_STATUS.NO_ANSWER]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.FAILED]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.REJECTED]: 'i-ph-phone-x-bold',
@@ -156,14 +158,21 @@ const handledBy = computed(() =>
 );
 
 const labelKey = computed(() => {
-  // Before the status map on purpose: an inbound call nobody took can still be
-  // sitting at 'completed', which the map would label "Call ended".
+  // Attendance first on purpose: an inbound call nobody took can still be
+  // sitting at 'completed', which would otherwise read as "Call ended".
   if (isFailed.value) {
     return isOutbound.value
       ? 'CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL'
       : 'CONVERSATION.VOICE_CALL.MISSED_CALL';
   }
-  if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
+  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    return 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS';
+  }
+  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+    return isOutbound.value
+      ? 'CONVERSATION.VOICE_CALL.CALL_ENDED_OUTBOUND'
+      : 'CONVERSATION.VOICE_CALL.CALL_ENDED_INBOUND';
+  }
   // RINGING or an as-yet-unknown/initial status: orient purely by direction so an
   // outbound call never falls through to the "Incoming call" label.
   return isOutbound.value
