@@ -3,21 +3,27 @@
 module Custom
   module Voice
     class CallRouter
-      def initialize(inbox:, exclude_agent_ids: [])
+      def initialize(inbox:, exclude_agent_ids: [], preferred_agent_id: nil)
         @inbox = inbox
         @exclude_agent_ids = Array(exclude_agent_ids).compact
+        @preferred_agent_id = preferred_agent_id
       end
 
+      # A preferred agent only ever jumps the queue: they still have to be
+      # online, free and a member of the inbox, so a caller never waits on
+      # somebody who cannot pick up. Whoever asks for one decides what earns
+      # the preference; here it is only honoured when it is also eligible.
       def next_agent
         agents = eligible_agents
         return nil if agents.empty?
 
-        round_robin_pick(agents)
+        preferred = preferred_agent_id && agents.find { |agent| agent.id == preferred_agent_id }
+        preferred || round_robin_pick(agents)
       end
 
       private
 
-      attr_reader :inbox, :exclude_agent_ids
+      attr_reader :inbox, :exclude_agent_ids, :preferred_agent_id
 
       def eligible_agents
         inbox.members
