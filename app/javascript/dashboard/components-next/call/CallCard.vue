@@ -35,14 +35,7 @@ const props = defineProps({
   },
 });
 
-defineEmits([
-  'accept',
-  'reject',
-  'end',
-  'toggleMute',
-  'goToConversation',
-  'dismiss',
-]);
+defineEmits(['accept', 'reject', 'end', 'toggleMute', 'goToConversation']);
 
 const { t } = useI18n();
 
@@ -122,19 +115,6 @@ const channelIcon = computed(() => {
           <span class="text-xs font-medium text-n-teal-9 tracking-tight">
             {{ statusLabel }}
           </span>
-          <!-- Dismiss: removes the notification from the UI without declining.
-               Incoming only — outgoing/ongoing calls are ended via the call
-               controls, not silently dismissed. -->
-          <NextButton
-            v-if="isIncoming"
-            v-tooltip.top="$t('CONVERSATION.VOICE_WIDGET.DISMISS_CALL')"
-            icon="i-ph-x-bold"
-            slate
-            ghost
-            xs
-            class="!rounded-full -my-1 -me-1 !text-n-call-widget-sub-text"
-            @click="$emit('dismiss')"
-          />
         </div>
       </div>
 
