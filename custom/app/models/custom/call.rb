@@ -10,7 +10,8 @@ module Custom
     DEFAULT_STUN_URL = 'stun:stun.l.google.com:19302'.freeze
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
-                   :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at
+                   :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
+                   :conversation_created
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -62,6 +63,21 @@ module Custom
 
     def default_conference_sid
       "conf_account_#{account_id}_call_#{id}"
+    end
+
+    # The conversation of a call belongs to whoever answers it, unless somebody
+    # was already working it.
+    #
+    # Chatwoot's inbox auto-assignment stamps an owner the moment a conversation
+    # is created, chosen by its own round robin over online agents — which knows
+    # nothing about calls and will happily pick an agent who is on one. For a
+    # conversation this call created, that owner never spoke to anybody and is
+    # noise, so the agent who answers takes it over. A conversation that already
+    # existed has a real owner who was working it, and that one is respected.
+    def assign_conversation_to!(user_id)
+      return if conversation.assigned_entity.present? && !conversation_created
+
+      ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
     end
 
     def ringing?      = status == 'ringing'

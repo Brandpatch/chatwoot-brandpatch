@@ -56,6 +56,9 @@ module Custom
         ).perform
       end
 
+      # Records on the call whether this call is what brought the conversation
+      # into being, which is what decides who ends up owning it. See
+      # Custom::Call#assign_conversation_to!.
       def resolve_conversation!(contact, contact_inbox)
         reusable = if inbox.lock_to_single_conversation
                      contact_inbox.conversations.last
@@ -64,6 +67,7 @@ module Custom
                    end
         return reusable if reusable
 
+        @conversation_created = true
         account.conversations.create!(
           contact_inbox_id: contact_inbox.id,
           inbox_id: inbox.id,
@@ -82,7 +86,8 @@ module Custom
           direction: :incoming,
           status: 'ringing',
           provider_call_id: call_sid,
-          meta: { 'initiated_at' => Time.zone.now.to_i }.merge(extra_meta.stringify_keys)
+          meta: { 'initiated_at' => Time.zone.now.to_i, 'conversation_created' => @conversation_created.present? }
+                  .merge(extra_meta.stringify_keys)
         )
         call.update!(conference_sid: call.default_conference_sid) if call.twilio?
         call
