@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-dismiss-button-removal
 
 jobs:
   build-and-push:
