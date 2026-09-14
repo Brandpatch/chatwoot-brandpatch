@@ -31,10 +31,19 @@ module Custom
             # Resolved here, not read from params in the template: both ends are
             # optional and fall back to a default window, so the file has to
             # state the period actually used rather than what was asked for.
-            @date_range = date_range
+            #
+            # Printed in UTC, like every other export. The end of the range is
+            # 23:59:59 of the last day, and reading that through the app's time
+            # zone rolls it into the next one — the file claimed a day the
+            # reader had not asked for, and disagreed with its own name.
+            @period_since = date_range.first.utc.to_date
+            @period_until = date_range.last.utc.to_date
 
+            # No Content-Disposition: the dashboard reads the body and saves it
+            # through a blob, naming the file itself with the same helper every
+            # other report uses. A name here would be dead weight that could
+            # drift from the real one.
             response.headers['Content-Type'] = 'text/csv'
-            response.headers['Content-Disposition'] = "attachment; filename=#{csv_filename}"
             render layout: false, formats: [:csv]
           end
 
@@ -47,10 +56,6 @@ module Custom
               date_range: date_range,
               inbox_id: params[:inbox_id].presence
             ).perform
-          end
-
-          def csv_filename
-            "voice-report-#{grouping}-#{date_range.last.strftime('%d-%m-%Y')}.csv"
           end
 
           # Reuses the reports policy, which Custom::ReportPolicy already widens

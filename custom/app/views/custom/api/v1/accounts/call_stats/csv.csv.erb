@@ -10,7 +10,7 @@
 %>
 <% t = @stats[:totals] %>
 <% by_agent = @grouping.to_s == 'agent' %>
-<%= CSVSafe.generate_line [I18n.t('reports.period', since: @date_range.first.to_date, until: @date_range.last.to_date)] -%>
+<%= CSVSafe.generate_line [I18n.t('reports.period', since: @period_since, until: @period_until)] -%>
 <%= CSVSafe.generate_line [] -%>
 <%= CSVSafe.generate_line [I18n.t('reports.voice_csv.summary')] -%>
 <%= CSVSafe.generate_line [
