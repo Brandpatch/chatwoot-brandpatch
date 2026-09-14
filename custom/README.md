@@ -609,6 +609,7 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/controllers/custom/api/v1/accounts/calls_controller.rb` | Listado de llamadas para Informes |
 | `custom/app/controllers/custom/api/v1/accounts/call_stats_controller.rb` | Métricas agregadas de Informes |
 | `custom/app/controllers/custom/api/v1/accounts/my_call_stats_controller.rb` | Las cifras propias del agente, para su página de Llamadas |
+| `custom/app/views/custom/api/v1/accounts/call_stats/csv.csv.erb` | La exportación a CSV de los Informes |
 | `custom/app/controllers/custom/api/v1/accounts/contacts/calls_controller.rb` | Iniciar una llamada saliente a un contacto |
 | `custom/app/finders/custom/call_finder.rb` | Filtrado y paginación del listado |
 | `custom/app/services/custom/voice/inbound_call_builder.rb` | Crea contacto, conversación y llamada para una entrante |
@@ -681,7 +682,15 @@ DELETE inboxes/:inbox_id/conference         colgar o declinar
 POST   contacts/:id/call                    iniciar una saliente
 GET    calls                                listado para Informes
 GET    call_stats                           métricas agregadas
+GET    call_stats/csv                       las mismas métricas, en CSV
 ```
+
+El CSV se arma en el servidor y no en el navegador, aunque las filas ya estén
+en el store: los nombres de agente son texto que cargan los usuarios, y uno que
+empiece con `=`, `+`, `-` o `@` se ejecuta como fórmula al abrir el archivo en
+Excel. `CSVSafe` (gema `csv-safe`) es lo que usan todas las exportaciones de la
+app contra eso. Lleva todas las columnas del builder, no sólo las del bloque
+visible, y números crudos en vez de las cadenas formateadas de la pantalla.
 
 Y uno aparte, bajo `/custom/api/v1/accounts/:account_id/`:
 
