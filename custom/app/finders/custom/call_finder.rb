@@ -25,10 +25,34 @@ module Custom
 
     private
 
+    # An agent sees the calls they took, plus the ones they were offered and
+    # lost. Without that second half their own missed calls are unreachable:
+    # visibility demanded accepted_by_agent_id = them, while a call nobody
+    # answered has that column empty, so the Missed tab could never return a
+    # row and the personal figures contradicted the list they sat above.
+    #
+    # Only turns the agent lost are added, not every turn they were offered. A
+    # call somebody else answered was never theirs to read, and widening this
+    # to all turns would hand them its contact, conversation and recording.
+    #
+    # The conversation check stays in force over both halves.
     def filter_by_visibility
       return if account_wide_access?
 
-      @calls = @calls.where(accepted_by_agent_id: @current_user.id, conversation_id: accessible_conversations)
+      @calls = @calls
+               .where(conversation_id: accessible_conversations)
+               .where(
+                 'calls.accepted_by_agent_id = :user_id OR calls.id IN (:missed)',
+                 user_id: @current_user.id,
+                 missed: missed_turn_call_ids
+               )
+    end
+
+    def missed_turn_call_ids
+      Custom::CallRingAttempt.where(
+        agent_id: @current_user.id,
+        outcome: Custom::CallRingAttempt::MISSED_OUTCOMES
+      ).select(:call_id)
     end
 
     def accessible_conversations
