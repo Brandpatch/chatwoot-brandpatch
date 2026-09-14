@@ -165,7 +165,11 @@ onMounted(() => {
     />
     <div v-if="!visibleConversations.length" class="no-label-message px-4 p-3">
       <span>
-        {{ $t('CONTACT_PANEL.CONVERSATIONS.NO_RECORDS_FOUND') }}
+        {{
+          previousConversations.length
+            ? $t('CONVERSATION.CALL_HISTORY_FILTER.NO_MATCHES')
+            : $t('CONTACT_PANEL.CONVERSATIONS.NO_RECORDS_FOUND')
+        }}
       </span>
     </div>
     <div

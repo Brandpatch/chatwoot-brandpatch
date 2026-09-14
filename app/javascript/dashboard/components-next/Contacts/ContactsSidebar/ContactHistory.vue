@@ -65,7 +65,14 @@ const visibleConversations = computed(() =>
       class="px-6 pb-2"
       @tab-changed="callFilter = $event.key"
     />
+    <p
+      v-if="!visibleConversations.length"
+      class="px-6 py-10 text-sm leading-6 text-center text-n-slate-11"
+    >
+      {{ t('CONVERSATION.CALL_HISTORY_FILTER.NO_MATCHES') }}
+    </p>
     <div
+      v-else
       class="px-6 divide-y divide-n-strong [&>*:hover]:!border-y-transparent [&>*:hover+*]:!border-t-transparent"
     >
       <ConversationCard

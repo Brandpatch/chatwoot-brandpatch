@@ -97,6 +97,7 @@
       "ALL": "Todo",
       "WITH_CALLS": "Con llamadas",
       "MESSAGES_ONLY": "Solo mensajes",
+      "NO_MATCHES": "Ninguna conversación coincide con este filtro.",
       "BADGE_TOOLTIP": "Llamadas en esta conversación: {count}"
     },
     "VOICE_CALL": {

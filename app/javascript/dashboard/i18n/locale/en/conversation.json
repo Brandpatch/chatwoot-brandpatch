@@ -107,6 +107,7 @@
       "ALL": "All",
       "WITH_CALLS": "With calls",
       "MESSAGES_ONLY": "Messages only",
+      "NO_MATCHES": "No conversations match this filter.",
       "BADGE_TOOLTIP": "Calls in this conversation: {count}"
     },
     "VOICE_CALL": {
