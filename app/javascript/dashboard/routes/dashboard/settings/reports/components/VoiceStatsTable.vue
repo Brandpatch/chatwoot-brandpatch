@@ -5,6 +5,7 @@ import {
   createColumnHelper,
   getCoreRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
 } from '@tanstack/vue-table';
 import { useI18n } from 'vue-i18n';
 import { useUISettings } from 'dashboard/composables/useUISettings';
@@ -115,6 +116,23 @@ const SECTION_COLUMNS = {
 
 const columnHelper = createColumnHelper();
 
+// The default metric of each section: what somebody opening the report wants
+// ranked, rather than the alphabetical order that made them page through every
+// agent to find the ones who worked.
+const DEFAULT_SORT_BY = {
+  attention: 'callsAnswered',
+  outbound: 'outboundCalls',
+  conversations: 'resolvedConversations',
+};
+
+// TanStack only sends `undefined` to the bottom; a `null` sorts as a value and
+// would take the top spot descending. The builder sends real nulls — every
+// agent metric on the unassigned row, and responseRate/avgTimeToAnswer for
+// anyone who answered nothing — and the name of that same row. Reading them as
+// undefined in the accessor is what puts them last in both directions, and it
+// does not touch the cells: those render from the original row.
+const sortableValue = value => (value === null ? undefined : value);
+
 // AgentCell reads agent/email/thumbnail off the row, so the rows are shaped to
 // match it and the avatar treatment is shared with the overview report rather
 // than reimplemented.
@@ -122,7 +140,8 @@ const columns = computed(() => {
   const isAgent = props.grouping === 'agent';
 
   const nameColumn = isAgent
-    ? columnHelper.accessor('agent', {
+    ? columnHelper.accessor(row => sortableValue(row.agent), {
+        id: 'agent',
         header: t('VOICE_REPORTS.COLUMNS.AGENT'),
         // The unassigned row is not a person, so it gets the plain label
         // instead of an avatar and an email it does not have.
@@ -132,7 +151,8 @@ const columns = computed(() => {
             : h(AgentCell, cellProps),
         size: 260,
       })
-    : columnHelper.accessor('agent', {
+    : columnHelper.accessor(row => sortableValue(row.agent), {
+        id: 'agent',
         header: t('VOICE_REPORTS.COLUMNS.INBOX'),
         cell: cellProps => h(BaseCell, { content: cellProps.getValue() }),
         size: 260,
@@ -140,7 +160,8 @@ const columns = computed(() => {
 
   const sectionColumns = SECTION_COLUMNS[props.section][props.grouping];
   const metrics = sectionColumns.map(([key, label, format]) =>
-    columnHelper.accessor(key, {
+    columnHelper.accessor(row => sortableValue(row[key]), {
+      id: key,
       header: t(`VOICE_REPORTS.COLUMNS.${label}`),
       cell: cellFor(format),
       size: 120,
@@ -174,11 +195,14 @@ const table = useVueTable({
   get columns() {
     return columns.value;
   },
-  enableSorting: false,
   getCoreRowModel: getCoreRowModel(),
+  // Ahead of pagination in TanStack, so page one is the top of whichever
+  // criterion is selected rather than the first ten names.
+  getSortedRowModel: getSortedRowModel(),
   getPaginationRowModel: getPaginationRowModel(),
   initialState: {
     pagination: { pageSize: getPageSize() },
+    sorting: [{ id: DEFAULT_SORT_BY[props.section], desc: true }],
   },
 });
 </script>
