@@ -110,3 +110,27 @@ export const VOICE_CALL_OUTBOUND_INIT_STATUS = {
 export const VOICE_CALL_END_REASON = {
   AGENT_REJECTED: 'agent_rejected',
 };
+
+// The call is over and can be judged. A ringing or in-progress call has not
+// failed to be attended yet.
+export const VOICE_CALL_TERMINAL_STATUSES = [
+  VOICE_CALL_STATUS.COMPLETED,
+  VOICE_CALL_STATUS.NO_ANSWER,
+  VOICE_CALL_STATUS.FAILED,
+  VOICE_CALL_STATUS.REJECTED,
+];
+
+// An inbound call that ended with nobody on it, whatever the provider called it.
+// The status alone cannot answer this: a caller who hangs up while it rings
+// lands on 'completed' with no agent, and a declined call still carries the
+// agent who declined it. Reading either as answered is what made the
+// conversation contradict the call list and the reports about the same call.
+//
+// Takes primitives because each surface holds the call in its own shape — the
+// bubble has acceptedByAgentId, the call list an agent object — and the point is
+// that the rule lives in one place, not that they share a payload. Mirrors
+// Custom::Call's answered scope so all three agree.
+export const isMissedInboundVoiceCall = ({ status, hasAgent, isInbound }) =>
+  isInbound &&
+  VOICE_CALL_TERMINAL_STATUSES.includes(status) &&
+  (!hasAgent || status === VOICE_CALL_STATUS.REJECTED);

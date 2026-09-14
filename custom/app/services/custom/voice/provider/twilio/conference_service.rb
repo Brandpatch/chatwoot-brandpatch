@@ -16,7 +16,7 @@ module Custom
 
           def mark_agent_joined(user:)
             claim_call!(user)
-            assign_conversation!(user)
+            call.assign_conversation_to!(user.id)
           end
 
           def end_conference
@@ -66,13 +66,6 @@ module Custom
 
           def raise_already_accepted!(agent)
             raise CustomExceptions::CallAlreadyAccepted.new(agent_name: agent&.available_name || agent&.name)
-          end
-
-          def assign_conversation!(user)
-            conversation = call.conversation
-            return if conversation.assigned_entity.present?
-
-            ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user.id).perform
           end
         end
       end

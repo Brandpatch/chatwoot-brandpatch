@@ -32,7 +32,6 @@ const {
   joinCall,
   endCall: endCallSession,
   rejectIncomingCall,
-  dismissCall,
   formattedCallDuration,
 } = useCallSession();
 
@@ -177,9 +176,9 @@ const mainCardState = computed(() => {
 });
 
 // Stacked cards are always non-active (ringing) calls, so reflect each call's
-// real direction. An outbound call must render as OUTGOING — otherwise it shows
-// the incoming-only dismiss (✕) control and the agent could drop it locally
-// without terminating, leaving the customer ringing with no widget to end it.
+// real direction: an outbound call renders as OUTGOING, which is what decides
+// its icon and label and keeps the incoming-only accept button off a call the
+// agent placed themselves.
 const stackedCardState = call =>
   call?.callDirection === VOICE_CALL_DIRECTION.OUTBOUND
     ? VOICE_CALL_DIRECTION.OUTGOING
@@ -421,7 +420,6 @@ onBeforeUnmount(stopRingtone);
         :call-info="getCallInfo(call)"
         @accept="handleJoinCall(call)"
         @reject="rejectIncomingCall(call.callSid)"
-        @dismiss="dismissCall(call.callSid)"
         @go-to-conversation="goToConversation(call)"
       />
 
@@ -436,7 +434,6 @@ onBeforeUnmount(stopRingtone);
         :show-mute="hasActiveCall"
         @accept="handleJoinCall(primaryIncomingCall)"
         @reject="rejectIncomingCall(primaryIncomingCall?.callSid)"
-        @dismiss="dismissCall(primaryIncomingCall?.callSid)"
         @end="handleEndCall"
         @toggle-mute="toggleMute"
         @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"

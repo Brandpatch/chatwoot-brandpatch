@@ -57,7 +57,7 @@ module Custom
           return unless claimed
 
           Custom::Voice::RingAttemptTracker.record_answer!(call, user_id)
-          auto_assign_conversation!(user_id)
+          call.assign_conversation_to!(user_id)
         end
 
         def mark_accepted_broadcast!
@@ -69,13 +69,6 @@ module Custom
             first_time = true
           end
           first_time
-        end
-
-        def auto_assign_conversation!(user_id)
-          conversation = call.conversation
-          return if conversation.assigned_entity.present?
-
-          ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
         end
 
         def extract_user_id
