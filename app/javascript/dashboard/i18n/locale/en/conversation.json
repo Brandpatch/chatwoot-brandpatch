@@ -103,6 +103,13 @@
       "HIDE_LABELS": "Hide labels",
       "LABELS_COUNT": "{count} labels"
     },
+    "CALL_HISTORY_FILTER": {
+      "ALL": "All",
+      "WITH_CALLS": "With calls",
+      "MESSAGES_ONLY": "Messages only",
+      "NO_MATCHES": "No conversations match this filter.",
+      "BADGE_TOOLTIP": "Calls in this conversation: {count}"
+    },
     "VOICE_CALL": {
       "INCOMING_CALL": "Incoming call",
       "OUTGOING_CALL": "Outgoing call",

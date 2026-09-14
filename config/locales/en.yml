@@ -94,6 +94,7 @@ en:
       failed: Signup failed
     voice:
       call_already_accepted: '%{agent_name} is already handling the call.'
+      call_already_ended: 'This call has already ended.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:

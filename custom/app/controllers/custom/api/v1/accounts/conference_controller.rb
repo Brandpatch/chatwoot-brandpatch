@@ -6,7 +6,8 @@ module Custom
       module Accounts
         class ConferenceController < ::Api::V1::Accounts::BaseController
           before_action :set_voice_inbox_for_conference
-          rescue_from CustomExceptions::CallAlreadyAccepted, with: :render_call_already_accepted
+          rescue_from CustomExceptions::CallAlreadyAccepted, with: :render_call_conflict
+          rescue_from CustomExceptions::CallAlreadyEnded, with: :render_call_conflict
 
           def token
             render json: Custom::Voice::Provider::Twilio::TokenService.new(
@@ -78,7 +79,7 @@ module Custom
             conversation
           end
 
-          def render_call_already_accepted(error)
+          def render_call_conflict(error)
             render json: { error: error.message }, status: :conflict
           end
 
