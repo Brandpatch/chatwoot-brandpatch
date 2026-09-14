@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/compose-draft-per-contact
 
 jobs:
   build-and-push:
