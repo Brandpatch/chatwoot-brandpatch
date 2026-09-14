@@ -11,6 +11,7 @@ import {
   VOICE_CALL_END_REASON,
   MESSAGE_TYPES,
   ATTACHMENT_TYPES,
+  isMissedInboundVoiceCall,
 } from '../constants';
 import { useCallActions } from 'dashboard/composables/useCallSession';
 import { useWhatsappCallSession } from 'dashboard/composables/useWhatsappCallSession';
@@ -24,14 +25,16 @@ import BaseBubble from 'next/message/bubbles/Base.vue';
 import AudioChip from 'next/message/chips/Audio.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 
-const LABEL_MAP = {
-  [VOICE_CALL_STATUS.IN_PROGRESS]: 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS',
-  [VOICE_CALL_STATUS.COMPLETED]: 'CONVERSATION.VOICE_CALL.CALL_ENDED',
-};
-
+// A finished call is the one case where the status says nothing a reader
+// needs: 'completed' covers both directions and is where almost every call in
+// a mature inbox ends up, so it is answered by direction instead — same as the
+// ringing case at the bottom of labelKey and iconName.
+//
+// The failure states keep one icon for both directions on purpose: the crossed
+// phone means "never connected", which is true either way, and their labels
+// already say which direction it was.
 const ICON_MAP = {
   [VOICE_CALL_STATUS.IN_PROGRESS]: 'i-ph-phone-call-bold',
-  [VOICE_CALL_STATUS.COMPLETED]: 'i-ph-phone-bold',
   [VOICE_CALL_STATUS.NO_ANSWER]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.FAILED]: 'i-ph-phone-x-bold',
   [VOICE_CALL_STATUS.REJECTED]: 'i-ph-phone-x-bold',
@@ -81,21 +84,34 @@ const isOutbound = computed(() => {
 const isWhatsapp = computed(
   () => call.value?.provider === VOICE_CALL_PROVIDERS.WHATSAPP
 );
-const isFailed = computed(() =>
-  [
-    VOICE_CALL_STATUS.NO_ANSWER,
-    VOICE_CALL_STATUS.FAILED,
-    VOICE_CALL_STATUS.REJECTED,
-  ].includes(status.value)
+const acceptedByAgentId = computed(() => call.value?.acceptedByAgentId);
+// Inbound asks whether anybody actually took the call, not what the provider
+// called it: a caller who hangs up while it rings lands on 'completed' with no
+// agent, and going by the status read that as answered while the call list and
+// the reports counted it missed. Outbound keeps the status, since it always
+// carries the agent who dialled and attendance says nothing there.
+const isMissedInbound = computed(() =>
+  isMissedInboundVoiceCall({
+    status: status.value,
+    hasAgent: acceptedByAgentId.value != null,
+    isInbound: !isOutbound.value,
+  })
 );
-const isMissedInbound = computed(() => isFailed.value && !isOutbound.value);
+const isFailed = computed(
+  () =>
+    isMissedInbound.value ||
+    [
+      VOICE_CALL_STATUS.NO_ANSWER,
+      VOICE_CALL_STATUS.FAILED,
+      VOICE_CALL_STATUS.REJECTED,
+    ].includes(status.value)
+);
 const endReason = computed(() => call.value?.endReason);
 const wasDeclinedByAgent = computed(
   () =>
     isMissedInbound.value &&
     endReason.value === VOICE_CALL_END_REASON.AGENT_REJECTED
 );
-const acceptedByAgentId = computed(() => call.value?.acceptedByAgentId);
 const conversationAssignee = computed(() => {
   const conversation = store.getters.getConversationById?.(
     conversationId?.value
@@ -142,11 +158,20 @@ const handledBy = computed(() =>
 );
 
 const labelKey = computed(() => {
-  if (LABEL_MAP[status.value]) return LABEL_MAP[status.value];
+  // Attendance first on purpose: an inbound call nobody took can still be
+  // sitting at 'completed', which would otherwise read as "Call ended".
   if (isFailed.value) {
     return isOutbound.value
       ? 'CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_LABEL'
       : 'CONVERSATION.VOICE_CALL.MISSED_CALL';
+  }
+  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    return 'CONVERSATION.VOICE_CALL.CALL_IN_PROGRESS';
+  }
+  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+    return isOutbound.value
+      ? 'CONVERSATION.VOICE_CALL.CALL_ENDED_OUTBOUND'
+      : 'CONVERSATION.VOICE_CALL.CALL_ENDED_INBOUND';
   }
   // RINGING or an as-yet-unknown/initial status: orient purely by direction so an
   // outbound call never falls through to the "Incoming call" label.
@@ -156,15 +181,8 @@ const labelKey = computed(() => {
 });
 
 const subtext = computed(() => {
-  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
-  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
-    return [handledBy.value, formattedDuration.value]
-      .filter(Boolean)
-      .join(' · ');
-  }
-  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
-    return handledBy.value;
-  }
+  // Same precedence as labelKey: a missed call parked at 'completed' would
+  // otherwise fall into the branch below and print a duration nobody spoke for.
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
     if (isOutbound.value) {
@@ -177,6 +195,15 @@ const subtext = computed(() => {
     }
     return t('CONVERSATION.VOICE_CALL.MISSED_CALL_INBOUND_SUBTEXT');
   }
+  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
+  if (status.value === VOICE_CALL_STATUS.COMPLETED) {
+    return [handledBy.value, formattedDuration.value]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  if (status.value === VOICE_CALL_STATUS.IN_PROGRESS) {
+    return handledBy.value;
+  }
   // RINGING or an as-yet-unknown/initial status.
   if (isOutbound.value) {
     return handledBy.value || t('CONVERSATION.VOICE_CALL.CALLING');
@@ -185,6 +212,7 @@ const subtext = computed(() => {
 });
 
 const iconName = computed(() => {
+  if (isMissedInbound.value) return ICON_MAP[VOICE_CALL_STATUS.NO_ANSWER];
   if (ICON_MAP[status.value]) return ICON_MAP[status.value];
   return isOutbound.value
     ? 'i-ph-phone-outgoing-bold'
