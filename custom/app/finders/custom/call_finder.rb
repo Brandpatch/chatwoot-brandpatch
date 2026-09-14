@@ -25,32 +25,33 @@ module Custom
 
     private
 
-    # An agent sees the calls they took, plus the ones they were offered and
-    # lost. Without that second half their own missed calls are unreachable:
-    # visibility demanded accepted_by_agent_id = them, while a call nobody
-    # answered has that column empty, so the Missed tab could never return a
-    # row and the personal figures contradicted the list they sat above.
-    #
-    # Only turns the agent lost are added, not every turn they were offered. A
-    # call somebody else answered was never theirs to read, and widening this
-    # to all turns would hand them its contact, conversation and recording.
-    #
-    # The conversation check stays in force over both halves.
+    # Everyone else only ever sees their own calls, and only within the
+    # conversations they are allowed to read.
     def filter_by_visibility
       return if account_wide_access?
 
-      @calls = @calls
-               .where(conversation_id: accessible_conversations)
-               .where(
-                 'calls.accepted_by_agent_id = :user_id OR calls.id IN (:missed)',
-                 user_id: @current_user.id,
-                 missed: missed_turn_call_ids
-               )
+      @calls = belonging_to(@calls, @current_user.id).where(conversation_id: accessible_conversations)
     end
 
-    def missed_turn_call_ids
+    # A call is an agent's own if they took it or if they were given a turn and
+    # lost it. Both halves are needed: a call nobody answered has no
+    # accepted_by_agent_id, so reading only that column makes an agent's own
+    # missed calls unreachable — the Missed tab could not return a single row.
+    #
+    # Only turns the agent lost are counted, not every turn they were offered.
+    # A call somebody else answered was never theirs to read, and widening this
+    # would hand them its contact, conversation and recording.
+    def belonging_to(scope, agent_id)
+      scope.where(
+        'calls.accepted_by_agent_id = :agent_id OR calls.id IN (:missed)',
+        agent_id: agent_id,
+        missed: missed_turn_call_ids(agent_id)
+      )
+    end
+
+    def missed_turn_call_ids(agent_id)
       Custom::CallRingAttempt.where(
-        agent_id: @current_user.id,
+        agent_id: agent_id,
         outcome: Custom::CallRingAttempt::MISSED_OUTCOMES
       ).select(:call_id)
     end
@@ -90,8 +91,13 @@ module Custom
       @calls = @calls.where(inbox_id: @params[:inbox_id]) if @params[:inbox_id].present?
     end
 
+    # Same definition as visibility, so filtering by an agent answers the same
+    # question the figures above the list do. Reading accepted_by_agent_id
+    # alone here undid filter_by_visibility for the agent themselves, since the
+    # page always sends their own id: their missed calls made it past the
+    # visibility check and were dropped again one line later.
     def filter_by_agent
-      @calls = @calls.where(accepted_by_agent_id: @params[:agent_id]) if @params[:agent_id].present?
+      @calls = belonging_to(@calls, @params[:agent_id]) if @params[:agent_id].present?
     end
 
     def filter_by_date_range
