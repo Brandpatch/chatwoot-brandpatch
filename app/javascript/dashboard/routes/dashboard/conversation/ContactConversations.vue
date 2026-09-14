@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore, useMapGetter } from 'dashboard/composables/store';
 import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
@@ -12,6 +13,12 @@ import ConversationCard from 'dashboard/components/widgets/conversation/Conversa
 import ContextMenu from 'dashboard/components/ui/ContextMenu.vue';
 import ConversationContextMenu from 'dashboard/components/widgets/conversation/contextMenu/Index.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
+import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
+import {
+  CONVERSATION_CALL_FILTER,
+  buildCallFilterTabs,
+  filterConversationsByCalls,
+} from 'dashboard/helper/conversationCalls';
 
 const props = defineProps({
   contactId: { type: [String, Number], required: true },
@@ -43,6 +50,25 @@ const conversations = computed(() =>
 
 const previousConversations = computed(() =>
   conversations.value.filter(c => c.id !== Number(props.conversationId))
+);
+
+// A contact's history mixes chats and calls in the same conversations, so the
+// only useful cut is whether a conversation carries calls at all. Tabs render
+// only once there is at least one, which keeps the panel unchanged for
+// accounts that never use voice.
+const { t } = useI18n();
+const callFilter = ref(CONVERSATION_CALL_FILTER.ALL);
+const callFilterTabs = computed(() =>
+  buildCallFilterTabs(previousConversations.value, t, { withCounts: false })
+);
+const activeCallFilterIndex = computed(() =>
+  Math.max(
+    callFilterTabs.value.findIndex(tab => tab.key === callFilter.value),
+    0
+  )
+);
+const visibleConversations = computed(() =>
+  filterConversationsByCalls(previousConversations.value, callFilter.value)
 );
 
 const activeContextChat = ref(null);
@@ -130,7 +156,14 @@ onMounted(() => {
 
 <template>
   <div v-if="!uiFlags.isFetching" class="">
-    <div v-if="!previousConversations.length" class="no-label-message px-4 p-3">
+    <TabBar
+      v-if="callFilterTabs.length"
+      :tabs="callFilterTabs"
+      :initial-active-tab="activeCallFilterIndex"
+      class="px-4 pt-1"
+      @tab-changed="callFilter = $event.key"
+    />
+    <div v-if="!visibleConversations.length" class="no-label-message px-4 p-3">
       <span>
         {{ $t('CONTACT_PANEL.CONVERSATIONS.NO_RECORDS_FOUND') }}
       </span>
@@ -140,7 +173,7 @@ onMounted(() => {
       class="contact-conversation--list [&>.conversation:last-child]:!border-b-0 [&>.conversation:last-child:hover]:!border-b-0 [&>.conversation:last-child]:!rounded-b-lg"
     >
       <ConversationCard
-        v-for="conversation in previousConversations"
+        v-for="conversation in visibleConversations"
         :key="conversation.id"
         :chat="conversation"
         :current-contact="contactGetter(conversation.meta?.sender?.id) || {}"

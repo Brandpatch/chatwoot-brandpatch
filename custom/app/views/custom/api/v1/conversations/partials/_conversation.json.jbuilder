@@ -21,3 +21,13 @@ if conversation.account.feature_enabled?('custom_sla') && !conversation.account.
     json.sla_events []
   end
 end
+
+# [brandpatch] Whether this conversation carries voice calls. Nothing else in
+# the payload can answer that: voice rides on the Twilio SMS channel, so one
+# inbox serves both, and a call reuses the contact's open conversation instead
+# of opening its own. Channel, inbox and last message all stay silent — only
+# the calls themselves say so.
+#
+# Scoped by account_id because the calls index leads with that column, and this
+# partial also renders for every row of the main conversation list.
+json.calls_count conversation.custom_calls.where(account_id: conversation.account_id).count
