@@ -23,15 +23,45 @@ module Custom
         "EXTRACT(EPOCH FROM started_at) - (calls.meta->>'initiated_at')::bigint"
       )
 
-      pattr_initialize [:account!, :group_by!, :date_range!, { inbox_id: nil }]
+      # group_by is optional so the personal figures can reuse this without
+      # claiming to be a grouping: one agent's own row is not a breakdown of
+      # anything, and asking for it should not build the roster of everybody
+      # else to throw all but one line away.
+      pattr_initialize [:account!, :date_range!, { group_by: nil, inbox_id: nil }]
 
       def perform
-        grouping = group_by.to_sym
+        grouping = group_by.to_s.to_sym
         raise ArgumentError, "unknown grouping: #{group_by}" unless GROUPINGS.include?(grouping)
 
         {
           totals: totals,
           rows: grouping == :agent ? rows_by_agent : rows_by_inbox
+        }
+      end
+
+      # One agent's own activity, for the figures shown above their call list.
+      #
+      # Deliberately not rows_by_agent filtered down to one line: that method
+      # answers a supervisor's question and reads the whole inbox roster with
+      # everybody's names and emails, which has no place in a response that is
+      # by definition about the reader alone. No totals either — those are
+      # inbox-level, so they would tell the agent how the whole team did.
+      #
+      # Missed is read from the turns the agent was given, the same source as
+      # the reports, so the strip agrees with both the reports and the list
+      # under it.
+      def agent_summary(agent_id)
+        turns = ring_attempts.where(agent_id: agent_id).group(:outcome).count
+        missed = Custom::CallRingAttempt::MISSED_OUTCOMES.sum { |outcome| turns[outcome].to_i }
+
+        {
+          calls_answered: calls.incoming.answered.where(accepted_by_agent_id: agent_id).count,
+          outbound_calls: calls.outgoing.where(accepted_by_agent_id: agent_id).count,
+          missed_calls: missed,
+          call_minutes: to_minutes(calls.answered.where(accepted_by_agent_id: agent_id).sum(:duration_seconds)),
+          avg_time_to_answer: round_seconds(
+            ring_attempts.answered.where(agent_id: agent_id).average(TIME_TO_ANSWER_SQL)
+          )
         }
       end
 

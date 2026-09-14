@@ -4,6 +4,31 @@
     "ALL_CALLS": "All Calls",
     "ALL_CALLS_COUNT": "All Calls ({count})",
     "EMPTY_STATE": "No calls found",
+    "MY_METRICS": {
+      "ANSWERED": {
+        "LABEL": "Answered",
+        "TOOLTIP": "Incoming calls you were actually on. Calls you declined are not counted here."
+      },
+      "OUTBOUND": {
+        "LABEL": "Outgoing",
+        "TOOLTIP": "Calls you placed in this period."
+      },
+      "MISSED": {
+        "LABEL": "Missed",
+        "TOOLTIP": "Calls that rang you and you did not take, either because you declined or because your turn ran out. Calls answered by somebody else before it was your turn are not counted."
+      },
+      "MINUTES": {
+        "LABEL": "Minutes on calls",
+        "TOOLTIP": "Total time you spent talking, across incoming and outgoing calls."
+      },
+      "TIME_TO_ANSWER": {
+        "LABEL": "Avg. time to answer",
+        "TOOLTIP": "How long you took to pick up, averaged over the calls you answered."
+      }
+    },
+    "DATE_RANGE": {
+      "LABEL": "Period"
+    },
     "SETUP": {
       "TITLE": "Make and receive calls in one place",
       "SUBTITLE": "Set up a voice channel to start handling calls with your team. Every call, along with its recording, will appear here.",

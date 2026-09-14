@@ -598,6 +598,8 @@ Rails.application.routes.draw do
               resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
               resources :calls, only: [:index], controller: 'calls'
               resources :call_stats, only: [:index], controller: 'call_stats'
+              # Singular: the agent's own figures, with no id to address anyone else's.
+              resource :my_call_stats, only: [:show], controller: 'my_call_stats'
               resources :inboxes, only: [] do
                 resource :conference, only: %i[create destroy], controller: 'conference' do
                   get :token, on: :member
