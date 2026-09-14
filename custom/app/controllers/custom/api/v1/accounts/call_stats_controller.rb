@@ -12,7 +12,36 @@ module Custom
           def index
             return render_invalid_grouping if grouping.blank?
 
-            render json: Custom::Voice::CallStatsBuilder.new(
+            render json: stats
+          end
+
+          # Same figures as index, with the same filters, so the file matches
+          # what the reader had on screen when they asked for it.
+          #
+          # Built here rather than in the browser, where the rows already are:
+          # agent names are user-supplied text, and one starting with =, +, -
+          # or @ runs as a formula when the file opens in Excel. CSVSafe is what
+          # every other export in this app uses against that, and this file
+          # opens on an administrator's machine.
+          def csv
+            return render_invalid_grouping if grouping.blank?
+
+            @stats = stats
+            @grouping = grouping
+            # Resolved here, not read from params in the template: both ends are
+            # optional and fall back to a default window, so the file has to
+            # state the period actually used rather than what was asked for.
+            @date_range = date_range
+
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = "attachment; filename=#{csv_filename}"
+            render layout: false, formats: [:csv]
+          end
+
+          private
+
+          def stats
+            Custom::Voice::CallStatsBuilder.new(
               account: Current.account,
               group_by: grouping,
               date_range: date_range,
@@ -20,7 +49,9 @@ module Custom
             ).perform
           end
 
-          private
+          def csv_filename
+            "voice-report-#{grouping}-#{date_range.last.strftime('%d-%m-%Y')}.csv"
+          end
 
           # Reuses the reports policy, which Custom::ReportPolicy already widens
           # to agents holding report_manage. These figures rank agents against

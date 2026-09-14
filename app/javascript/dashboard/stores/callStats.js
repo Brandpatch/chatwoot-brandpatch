@@ -1,5 +1,6 @@
 import camelcaseKeys from 'camelcase-keys';
 import CallStatsAPI from 'dashboard/api/callStats';
+import { downloadCsvFile } from 'dashboard/helper/downloadHelper';
 import { throwErrorMessage } from 'dashboard/store/utils/api';
 import { defineStore } from 'pinia';
 
@@ -44,6 +45,19 @@ export const useCallStatsStore = defineStore('callStats', {
           this.uiFlags.isFetching = false;
         }
       }
+    },
+
+    // The server renders the file so agent names, which are user-supplied text,
+    // cannot run as spreadsheet formulas. Same filters as the view, so the file
+    // matches what the reader had on screen.
+    async downloadStats({ fileName, groupBy, since, until, inboxId } = {}) {
+      const { data } = await CallStatsAPI.download({
+        group_by: groupBy,
+        since,
+        until,
+        ...(inboxId ? { inbox_id: inboxId } : {}),
+      });
+      downloadCsvFile(fileName, data);
     },
 
     resetStats() {

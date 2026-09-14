@@ -547,6 +547,8 @@
   },
   "VOICE_REPORTS": {
     "HEADER": "Call Reports",
+    "DOWNLOAD": "Download CSV",
+    "DOWNLOAD_FAILED": "Could not download the report. Please try again.",
     "LOADING": "Loading call figures…",
     "EMPTY": "No calls in this period.",
     "UNASSIGNED": "Unassigned",
