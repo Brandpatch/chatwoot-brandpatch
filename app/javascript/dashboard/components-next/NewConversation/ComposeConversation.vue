@@ -82,6 +82,45 @@ const directUploadsEnabled = computed(
 
 const activeContact = computed(() => contactById.value(props.contactId));
 
+// This dialog is mounted once in the contact panel and reused as the agent
+// moves around, so its text survives a change of conversation but not a change
+// of contact: the watcher below wipes it on purpose, so a message meant for one
+// customer can never end up addressed to another. That protection stays. What
+// was missing is somewhere to keep the text in the meantime.
+//
+// Keyed by contact, in the same store the conversation reply editor uses, so a
+// draft also survives a reload. Only when the dialog was opened from a contact:
+// composing from the sidebar has nobody to file the draft under.
+const draftKeyFor = contactId => `compose-contact-${contactId}`;
+const getDraftMessage = useMapGetter('draftMessages/get');
+
+// Whose text is in the box right now. Tracked rather than read from the props
+// because the contact getter returns nothing for a moment while the next one
+// loads, and a draft filed under that gap would be lost.
+const draftOwnerId = ref(props.contactId);
+
+const persistDraft = (contactId, message) => {
+  if (!contactId) return;
+
+  store.dispatch('draftMessages/set', {
+    key: draftKeyFor(contactId),
+    message,
+  });
+};
+
+const saveDraft = debounce(persistDraft, 300, false);
+
+const clearDraft = contactId => {
+  if (!contactId) return;
+
+  store.dispatch('draftMessages/delete', { key: draftKeyFor(contactId) });
+};
+
+watch(
+  () => formState.message,
+  message => saveDraft(draftOwnerId.value, message)
+);
+
 const onContactSearch = debounce(
   async query => {
     isSearching.value = true;
@@ -167,9 +206,12 @@ const closeCompose = () => {
   resetContacts();
 };
 
+// Reached both by the discard button and by a conversation being created, and
+// either way the text is done with, so the stored draft goes with it.
 const discardCompose = () => {
   clearFormState();
   formState.message = '';
+  clearDraft(draftOwnerId.value);
   closeCompose();
 };
 
@@ -217,9 +259,21 @@ watch(
     if (currentContact && props.contactId) {
       // Reset on contact change
       if (currentContact?.id !== previousContact?.id) {
+        // The last keystrokes are still inside the debounce window and the
+        // field is about to be wiped, so this one cannot wait for the timer.
+        // Guarded because this branch also runs on the very first render, when
+        // the box is empty and saving it would erase the stored draft a line
+        // before we read it.
+        if (draftOwnerId.value !== props.contactId) {
+          persistDraft(draftOwnerId.value, formState.message);
+        }
+
         clearSelectedContact();
         clearFormState();
-        formState.message = '';
+        draftOwnerId.value = props.contactId;
+        formState.message = getDraftMessage.value(
+          draftKeyFor(draftOwnerId.value)
+        );
       }
 
       // First process the contactable inboxes to get the right structure
