@@ -84,7 +84,11 @@ module Custom
           when 'ringing'
             status_manager.process_status_update('no_answer', timestamp: now)
           when 'in_progress'
-            status_manager.process_status_update('completed', timestamp: now)
+            # The participant label is the only place in the whole flow where a
+            # connected call ending can be attributed without guessing: both
+            # sides leaving arrive here as the same 'completed'.
+            reason = agent_participant? ? Custom::Call::AGENT_HANGUP : Custom::Call::CALLER_HANGUP
+            status_manager.process_status_update('completed', timestamp: now, end_reason: reason)
           end
         end
 

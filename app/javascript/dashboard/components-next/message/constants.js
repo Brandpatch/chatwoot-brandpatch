@@ -109,6 +109,8 @@ export const VOICE_CALL_OUTBOUND_INIT_STATUS = {
 
 export const VOICE_CALL_END_REASON = {
   AGENT_REJECTED: 'agent_rejected',
+  AGENT_HANGUP: 'agent_hangup',
+  CALLER_HANGUP: 'caller_hangup',
 };
 
 // The call is over and can be judged. A ringing or in-progress call has not

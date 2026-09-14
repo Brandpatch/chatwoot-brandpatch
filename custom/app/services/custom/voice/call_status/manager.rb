@@ -6,12 +6,17 @@ module Custom
       class Manager
         pattr_initialize [:call!]
 
-        def process_status_update(status, duration: nil, timestamp: nil)
+        # end_reason says who ended the call, and only the caller that caused
+        # the ending knows: 'completed' reaches here both from the agent
+        # dropping and from the customer hanging up. Whoever writes the terminal
+        # status first wins, here as everywhere, so the reason that sticks is
+        # the one from the path that actually ended it.
+        def process_status_update(status, duration: nil, timestamp: nil, end_reason: nil)
           return unless Custom::Call::STATUSES.include?(status)
           return if call.status == status
           return if Custom::Call::TERMINAL_STATUSES.include?(call.status)
 
-          apply_call_updates!(status, duration: duration, timestamp: timestamp)
+          apply_call_updates!(status, duration: duration, timestamp: timestamp, end_reason: end_reason)
           close_open_ring_attempt! if Custom::Call::TERMINAL_STATUSES.include?(status)
           call.conversation.update!(last_activity_at: Time.zone.now)
           call.message&.touch # rubocop:disable Rails/SkipsModelValidations
@@ -27,7 +32,7 @@ module Custom
           Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::CALLER_HANGUP)
         end
 
-        def apply_call_updates!(status, duration:, timestamp:)
+        def apply_call_updates!(status, duration:, timestamp:, end_reason:)
           attrs = { status: status }
           ts = timestamp || now_seconds
 
@@ -38,6 +43,7 @@ module Custom
             call.ended_at = ts
             attrs[:meta] = call.meta
             attrs[:duration_seconds] = resolved_duration(duration, ts)
+            attrs[:end_reason] = end_reason if end_reason
           end
 
           call.update!(attrs)
