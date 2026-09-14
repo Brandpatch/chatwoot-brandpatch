@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feat/voice-call-end-reason
 
 jobs:
   build-and-push:
