@@ -1,5 +1,5 @@
 <script setup>
-import { computed, h } from 'vue';
+import { computed, h, ref } from 'vue';
 import {
   useVueTable,
   createColumnHelper,
@@ -125,23 +125,54 @@ const DEFAULT_SORT_BY = {
   conversations: 'resolvedConversations',
 };
 
-// TanStack only sends `undefined` to the bottom; a `null` sorts as a value and
-// would take the top spot descending. The builder sends real nulls — every
-// agent metric on the unassigned row, and responseRate/avgTimeToAnswer for
-// anyone who answered nothing — and the name of that same row. Reading them as
-// undefined in the accessor is what puts them last in both directions, and it
-// does not touch the cells: those render from the original row.
-const sortableValue = value => (value === null ? undefined : value);
+// Held here rather than inside the table because the comparator needs to know
+// which way the column points before it can place the rows with no value.
+const sorting = ref([{ id: DEFAULT_SORT_BY[props.section], desc: true }]);
+
+// A metric with nothing behind it belongs at the bottom whichever way the
+// column points: it is not a low score, it is an absence. The builder sends
+// real nulls for it — every agent metric on the unassigned row, and
+// responseRate/avgTimeToAnswer for anyone who answered nothing — plus the name
+// of that same row.
+//
+// Neither of TanStack's own answers does that on 8.20. A null sorts as an
+// ordinary value, and sortUndefined only takes a number there, which places the
+// missing ones before the direction is applied, so they surface on top
+// descending — the one place they should never be. The string form that is
+// applied afterwards only arrives in 8.21.
+//
+// So the comparator carries the rule. getSortedRowModel negates it for a
+// descending sort, which is why the absent side returns a value already
+// inverted: negated, it still points down the table. Cells are untouched —
+// they render from the original row.
+const isMissing = value => value === null || value === undefined;
+
+const compareValues = (a, b) =>
+  typeof a === 'string' || typeof b === 'string'
+    ? String(a).localeCompare(String(b))
+    : a - b;
+
+const sortMissingLast = desc => (rowA, rowB, columnId) => {
+  const a = rowA.getValue(columnId);
+  const b = rowB.getValue(columnId);
+  if (isMissing(a) && isMissing(b)) return 0;
+  if (isMissing(a)) return desc ? -1 : 1;
+  if (isMissing(b)) return desc ? 1 : -1;
+
+  return compareValues(a, b);
+};
 
 // AgentCell reads agent/email/thumbnail off the row, so the rows are shaped to
 // match it and the avatar treatment is shared with the overview report rather
 // than reimplemented.
 const columns = computed(() => {
   const isAgent = props.grouping === 'agent';
+  // Read reactively so the comparator is rebuilt whenever the direction flips.
+  const sortingFn = sortMissingLast(sorting.value[0]?.desc ?? false);
 
   const nameColumn = isAgent
-    ? columnHelper.accessor(row => sortableValue(row.agent), {
-        id: 'agent',
+    ? columnHelper.accessor('agent', {
+        sortingFn,
         header: t('VOICE_REPORTS.COLUMNS.AGENT'),
         // The unassigned row is not a person, so it gets the plain label
         // instead of an avatar and an email it does not have.
@@ -151,8 +182,8 @@ const columns = computed(() => {
             : h(AgentCell, cellProps),
         size: 260,
       })
-    : columnHelper.accessor(row => sortableValue(row.agent), {
-        id: 'agent',
+    : columnHelper.accessor('agent', {
+        sortingFn,
         header: t('VOICE_REPORTS.COLUMNS.INBOX'),
         cell: cellProps => h(BaseCell, { content: cellProps.getValue() }),
         size: 260,
@@ -160,8 +191,8 @@ const columns = computed(() => {
 
   const sectionColumns = SECTION_COLUMNS[props.section][props.grouping];
   const metrics = sectionColumns.map(([key, label, format]) =>
-    columnHelper.accessor(row => sortableValue(row[key]), {
-      id: key,
+    columnHelper.accessor(key, {
+      sortingFn,
       header: t(`VOICE_REPORTS.COLUMNS.${label}`),
       cell: cellFor(format),
       size: 120,
@@ -195,6 +226,15 @@ const table = useVueTable({
   get columns() {
     return columns.value;
   },
+  state: {
+    get sorting() {
+      return sorting.value;
+    },
+  },
+  onSortingChange: updater => {
+    sorting.value =
+      typeof updater === 'function' ? updater(sorting.value) : updater;
+  },
   getCoreRowModel: getCoreRowModel(),
   // Ahead of pagination in TanStack, so page one is the top of whichever
   // criterion is selected rather than the first ten names.
@@ -202,7 +242,6 @@ const table = useVueTable({
   getPaginationRowModel: getPaginationRowModel(),
   initialState: {
     pagination: { pageSize: getPageSize() },
-    sorting: [{ id: DEFAULT_SORT_BY[props.section], desc: true }],
   },
 });
 </script>
