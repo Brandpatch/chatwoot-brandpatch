@@ -112,6 +112,20 @@ const wasDeclinedByAgent = computed(
     isMissedInbound.value &&
     endReason.value === VOICE_CALL_END_REASON.AGENT_REJECTED
 );
+// Who ended a call somebody actually took. Only two of the four endings are a
+// person: a timeout or a carrier failure has nobody to name. Calls that ended
+// before this shipped carry no reason at all, so an absent value means "not
+// recorded" and the line is simply left out rather than guessed at.
+const endedByKey = computed(() => {
+  if (endReason.value === VOICE_CALL_END_REASON.AGENT_HANGUP) {
+    return 'CONVERSATION.VOICE_CALL.ENDED_BY_AGENT';
+  }
+  if (endReason.value === VOICE_CALL_END_REASON.CALLER_HANGUP) {
+    return 'CONVERSATION.VOICE_CALL.ENDED_BY_CONTACT';
+  }
+  return null;
+});
+
 const conversationAssignee = computed(() => {
   const conversation = store.getters.getConversationById?.(
     conversationId?.value
@@ -195,9 +209,14 @@ const subtext = computed(() => {
     }
     return t('CONVERSATION.VOICE_CALL.MISSED_CALL_INBOUND_SUBTEXT');
   }
-  // Completed: "Handled by {agent} · 0:42" (drops either part when absent).
+  // Completed: "Handled by {agent} · 0:42 · Contact hung up" (drops any part
+  // that is absent).
   if (status.value === VOICE_CALL_STATUS.COMPLETED) {
-    return [handledBy.value, formattedDuration.value]
+    return [
+      handledBy.value,
+      formattedDuration.value,
+      endedByKey.value && t(endedByKey.value),
+    ]
       .filter(Boolean)
       .join(' · ');
   }

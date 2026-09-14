@@ -91,8 +91,9 @@ module Custom
               next if call.terminal?
 
               status = call.in_progress? ? 'completed' : 'no_answer'
-              call.update!(end_reason: 'agent_hangup')
-              Custom::Voice::CallStatus::Manager.new(call: call).process_status_update(status)
+              Custom::Voice::CallStatus::Manager
+                .new(call: call)
+                .process_status_update(status, end_reason: Custom::Call::AGENT_HANGUP)
             end
             Custom::Voice::CallMessageBuilder.new(call).update_status!(status: status, agent: Current.user) if status
           end

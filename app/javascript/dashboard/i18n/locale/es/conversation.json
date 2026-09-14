@@ -106,6 +106,8 @@
       "CALL_ENDED": "Llamada finalizada",
       "CALL_ENDED_INBOUND": "Llamada entrante finalizada",
       "CALL_ENDED_OUTBOUND": "Llamada saliente finalizada",
+      "ENDED_BY_AGENT": "Colgó el agente",
+      "ENDED_BY_CONTACT": "Colgó el cliente",
       "HANDLED_BY": "Atendida por {agentName}",
       "NOT_ANSWERED_YET": "Aún no atendida",
       "CALLING": "Llamando…",
