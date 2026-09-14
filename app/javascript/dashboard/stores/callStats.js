@@ -1,5 +1,6 @@
 import camelcaseKeys from 'camelcase-keys';
 import CallStatsAPI from 'dashboard/api/callStats';
+import { downloadCsvFile } from 'dashboard/helper/downloadHelper';
 import { throwErrorMessage } from 'dashboard/store/utils/api';
 import { defineStore } from 'pinia';
 
@@ -44,6 +45,24 @@ export const useCallStatsStore = defineStore('callStats', {
           this.uiFlags.isFetching = false;
         }
       }
+    },
+
+    // The server renders the file so agent names, which are user-supplied text,
+    // cannot run as spreadsheet formulas. Same filters as the view, so the file
+    // matches what the reader had on screen.
+    async downloadStats({ fileName, groupBy, since, until, inboxId } = {}) {
+      const { data } = await CallStatsAPI.download({
+        group_by: groupBy,
+        since,
+        until,
+        // The range is worked out in this browser's time zone, so the end of a
+        // day reaches the server as an instant that is already the next day in
+        // UTC. Sent along so the period printed in the file reads back as the
+        // days the screen showed. Negated: getTimezoneOffset reports inverted.
+        utc_offset: -new Date().getTimezoneOffset(),
+        ...(inboxId ? { inbox_id: inboxId } : {}),
+      });
+      downloadCsvFile(fileName, data);
     },
 
     resetStats() {

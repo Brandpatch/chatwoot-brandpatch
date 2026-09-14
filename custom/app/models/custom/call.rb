@@ -6,6 +6,16 @@ module Custom
 
     STATUSES = %w[ringing in_progress completed no_answer failed rejected].freeze
     TERMINAL_STATUSES = %w[completed no_answer failed rejected].freeze
+
+    # Who hung up on a call that was connected. Only these two endings are a
+    # person: a ring that timed out or a carrier failure is already spelled out
+    # by the status, and has nobody to name. Declining is not an ending either
+    # — the router hands the call to the next agent and the caller waits on, so
+    # a decline always ends later by one of these. It stays per turn, in
+    # call_ring_attempts.outcome, the only place a call with several turns can
+    # record a different answer for each agent.
+    AGENT_HANGUP = 'agent_hangup'
+    CALLER_HANGUP = 'caller_hangup'
     DISPLAY_DIRECTION = { 'incoming' => 'inbound', 'outgoing' => 'outbound' }.freeze
     DEFAULT_STUN_URL = 'stun:stun.l.google.com:19302'.freeze
 

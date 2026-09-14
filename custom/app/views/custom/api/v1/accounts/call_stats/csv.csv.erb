@@ -1,0 +1,104 @@
+<%#
+  Every column the builder produces, not just the ones the screen shows. The
+  page splits them into three blocks because they do not fit side by side; a
+  spreadsheet has no such problem, and a reader exporting figures wants all of
+  them in one row.
+
+  Raw numbers, not the formatted strings on screen: 18.4 rather than "18.4s",
+  0.83 rather than "83%". That is what pivots, and it is what every other
+  export here does.
+%>
+<%#
+  raw on every line: ERB escapes HTML by default, and CSVSafe defuses a
+  dangerous name by prefixing an apostrophe — which came out as &#39; in the
+  cell. The file was safe either way, but the reader saw the escaping. Nothing
+  here is HTML, so there is nothing to escape.
+%>
+<% t = @stats[:totals] %>
+<% by_agent = @grouping.to_s == 'agent' %>
+<%= raw CSVSafe.generate_line [I18n.t('reports.period', since: @period_since, until: @period_until)] -%>
+<%= raw CSVSafe.generate_line [] -%>
+<%= raw CSVSafe.generate_line [I18n.t('reports.voice_csv.summary')] -%>
+<%= raw CSVSafe.generate_line [
+      I18n.t('reports.voice_csv.received_calls'),
+      I18n.t('reports.voice_csv.calls_answered'),
+      I18n.t('reports.voice_csv.unattended_calls'),
+      I18n.t('reports.voice_csv.response_rate'),
+      I18n.t('reports.voice_csv.avg_time_to_answer'),
+      I18n.t('reports.voice_csv.call_minutes'),
+      I18n.t('reports.voice_csv.outbound_calls'),
+      I18n.t('reports.voice_csv.outbound_call_minutes')
+    ] -%>
+<%= raw CSVSafe.generate_line [
+      t[:received_calls],
+      t[:calls_answered],
+      t[:unattended_calls],
+      t[:response_rate],
+      t[:avg_time_to_answer],
+      t[:call_minutes],
+      t[:outbound_calls],
+      t[:outbound_call_minutes]
+    ] -%>
+<%= raw CSVSafe.generate_line [] -%>
+<%#
+  The two groupings do not carry the same columns and deliberately do not
+  reconcile: a missed call is a turn an agent was offered and did not take,
+  which an inbox does not have, so the inbox counts what nobody took instead.
+%>
+<% if by_agent %>
+<%= raw CSVSafe.generate_line [
+      I18n.t('reports.voice_csv.agent_name'),
+      I18n.t('reports.voice_csv.calls_answered'),
+      I18n.t('reports.voice_csv.missed_calls'),
+      I18n.t('reports.voice_csv.response_rate'),
+      I18n.t('reports.voice_csv.avg_time_to_answer'),
+      I18n.t('reports.voice_csv.call_minutes'),
+      I18n.t('reports.voice_csv.outbound_calls'),
+      I18n.t('reports.voice_csv.outbound_call_minutes'),
+      I18n.t('reports.voice_csv.avg_outbound_duration'),
+      I18n.t('reports.voice_csv.notes'),
+      I18n.t('reports.voice_csv.resolved_conversations')
+    ] -%>
+<% @stats[:rows].each do |row| %>
+<%= raw CSVSafe.generate_line [
+      row[:name],
+      row[:calls_answered],
+      row[:missed_calls],
+      row[:response_rate],
+      row[:avg_time_to_answer],
+      row[:call_minutes],
+      row[:outbound_calls],
+      row[:outbound_call_minutes],
+      row[:avg_outbound_duration],
+      row[:notes],
+      row[:resolved_conversations]
+    ] -%>
+<% end %>
+<% else %>
+<%= raw CSVSafe.generate_line [
+      I18n.t('reports.voice_csv.inbox_name'),
+      I18n.t('reports.voice_csv.calls_answered'),
+      I18n.t('reports.voice_csv.unattended_calls'),
+      I18n.t('reports.voice_csv.avg_time_to_answer'),
+      I18n.t('reports.voice_csv.call_minutes'),
+      I18n.t('reports.voice_csv.outbound_calls'),
+      I18n.t('reports.voice_csv.outbound_call_minutes'),
+      I18n.t('reports.voice_csv.avg_outbound_duration'),
+      I18n.t('reports.voice_csv.notes'),
+      I18n.t('reports.voice_csv.resolved_conversations')
+    ] -%>
+<% @stats[:rows].each do |row| %>
+<%= raw CSVSafe.generate_line [
+      row[:name],
+      row[:calls_answered],
+      row[:unattended_calls],
+      row[:avg_time_to_answer],
+      row[:call_minutes],
+      row[:outbound_calls],
+      row[:outbound_call_minutes],
+      row[:avg_outbound_duration],
+      row[:notes],
+      row[:resolved_conversations]
+    ] -%>
+<% end %>
+<% end %>

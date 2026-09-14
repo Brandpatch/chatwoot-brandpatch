@@ -9,12 +9,15 @@ import {
   parseReportURLParams,
 } from './helpers/reportFilterHelper';
 import WootDatePicker from 'dashboard/components/ui/DatePicker/DatePicker.vue';
+import V4Button from 'dashboard/components-next/button/Button.vue';
 import TabBar from 'dashboard/components-next/tabbar/TabBar.vue';
 import ReportHeader from './components/ReportHeader.vue';
 import VoiceStatsTable from './components/VoiceStatsTable.vue';
 import VoiceMetricCards from './components/VoiceMetricCards.vue';
 import MetricCard from './components/overview/MetricCard.vue';
 import { useCallStatsStore } from 'dashboard/stores/callStats';
+import { useAlert } from 'dashboard/composables';
+import { generateFileName } from 'dashboard/helper/downloadHelper';
 
 const GROUPINGS = ['agent', 'inbox'];
 const SECTIONS = ['attention', 'outbound', 'conversations'];
@@ -90,6 +93,27 @@ const onTabChange = tab => {
   fetchStats();
 };
 
+const isDownloading = ref(false);
+
+const downloadReport = async () => {
+  isDownloading.value = true;
+  try {
+    await callStatsStore.downloadStats({
+      fileName: generateFileName({
+        type: `voice-${grouping.value}`,
+        to: to.value,
+      }),
+      groupBy: grouping.value,
+      since: from.value,
+      until: to.value,
+    });
+  } catch (error) {
+    useAlert(t('VOICE_REPORTS.DOWNLOAD_FAILED'));
+  } finally {
+    isDownloading.value = false;
+  }
+};
+
 onMounted(fetchStats);
 // The store is shared, so leaving without clearing would flash the previous
 // grouping's figures on the way back in.
@@ -98,7 +122,16 @@ onUnmounted(() => callStatsStore.resetStats());
 
 <template>
   <div class="flex flex-col gap-4">
-    <ReportHeader :header-title="t('VOICE_REPORTS.HEADER')" />
+    <ReportHeader :header-title="t('VOICE_REPORTS.HEADER')">
+      <V4Button
+        :label="t('VOICE_REPORTS.DOWNLOAD')"
+        :is-loading="isDownloading"
+        :disabled="isDownloading"
+        icon="i-ph-download-simple"
+        size="sm"
+        @click="downloadReport"
+      />
+    </ReportHeader>
 
     <div class="flex flex-col flex-wrap w-full gap-3 md:flex-row">
       <WootDatePicker

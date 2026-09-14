@@ -103,6 +103,13 @@
       "HIDE_LABELS": "Hide labels",
       "LABELS_COUNT": "{count} labels"
     },
+    "CALL_HISTORY_FILTER": {
+      "ALL": "All",
+      "WITH_CALLS": "With calls",
+      "MESSAGES_ONLY": "Messages only",
+      "NO_MATCHES": "No conversations match this filter.",
+      "BADGE_TOOLTIP": "Calls in this conversation: {count}"
+    },
     "VOICE_CALL": {
       "INCOMING_CALL": "Incoming call",
       "OUTGOING_CALL": "Outgoing call",
@@ -116,6 +123,8 @@
       "CALL_ENDED": "Call ended",
       "CALL_ENDED_INBOUND": "Incoming call ended",
       "CALL_ENDED_OUTBOUND": "Outgoing call ended",
+      "ENDED_BY_AGENT": "Agent hung up",
+      "ENDED_BY_CONTACT": "Contact hung up",
       "HANDLED_BY": "Handled by {agentName}",
       "NOT_ANSWERED_YET": "Not answered yet",
       "CALLING": "Calling…",

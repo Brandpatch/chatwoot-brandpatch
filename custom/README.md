@@ -37,6 +37,8 @@ instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
   - [Tablas y columnas propias](#tablas-y-columnas-propias)
   - [Cómo funciona una llamada entrante](#cómo-funciona-una-llamada-entrante)
   - [Enrutamiento, escalación y cola](#enrutamiento-escalación-y-cola)
+  - [Qué llamadas ve cada agente](#qué-llamadas-ve-cada-agente)
+  - [Qué cuenta como "atendida"](#qué-cuenta-como-atendida)
   - [Aprovisionamiento en Twilio](#aprovisionamiento-en-twilio)
   - [Mapa de archivos (backend)](#mapa-de-archivos-backend-2)
   - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-2)
@@ -453,6 +455,21 @@ carga el esquema y después migra— pero no sirve como referencia; mirar la bas
 5. Al terminar, Twilio postea a `/status/` y a `/conference_status/`, y la
    grabación llega por `/recording_status/`, que la adjunta vía ActiveStorage.
 
+**A quién le queda la conversación.** La decide `Custom::Call#assign_conversation_to!`,
+en un solo lugar: si la llamada creó la conversación, se la lleva quien
+contesta; si ya existía, se respeta a su dueño, que venía trabajándola. La
+distinción se apoya en `conversation_created`, un flag que `InboundCallBuilder`
+estampa en `calls.meta`. Hacía falta porque el auto-assignment del inbox pone
+dueño al crearse la conversación, eligiéndolo con su propio round robin, que no
+sabe nada de llamadas y hasta elige a alguien que ya está en una.
+
+**A quién le suena primero.** `CallRouter` acepta un `preferred_agent_id` para
+timbrarle primero al agente que ya venía atendiendo el hilo. No relaja la
+elegibilidad: sigue teniendo que estar online, libre y ser miembro del inbox,
+así que sólo se adelanta en la cola. No se aplica si la llamada creó la
+conversación, si no está abierta, o si lleva parada más de
+`ASSIGNEE_PREFERENCE_WINDOW` (30 min).
+
 **Cuatro escritores compiten por el estado final** de una llamada:
 
 | Escritor | Cuándo |
@@ -480,6 +497,67 @@ ninguno, la llamada se desasigna y queda en cola hasta `max_wait_seconds`
 
 Declinar desde el widget hace lo mismo que un timeout —pasa al siguiente— pero
 cierra el turno propio como `rejected`, que sí cuenta contra ese agente.
+
+**`status = 'rejected'` no lo escribe nunca nadie.** Está en `STATUSES` y en
+`TERMINAL_STATUSES`, pero el rechazo vive por turno, en
+`call_ring_attempts.outcome`, que es el único lugar donde una llamada que sonó
+en varios agentes puede guardar una respuesta distinta para cada uno.
+Cualquier consulta que dependa de ese status devuelve vacío.
+
+### Qué llamadas ve cada agente
+
+Administradores y roles con `report_manage` ven todas las de la cuenta;
+`CallFinder#filter_by_visibility` sale antes de aplicar nada.
+
+Para el resto, una llamada es suya si **la atendió**, o si **le dieron un turno,
+lo perdió y nadie más la atendió**. La regla vive en `CallFinder#belonging_to`:
+
+```ruby
+accepted_by_agent_id = X OR (id IN turnos_perdidos_de_X AND NOT ANSWERED_SQL)
+```
+
+Las tres partes importan:
+
+- **Sin la segunda mitad, un agente no puede ver ni una de sus perdidas.** Una
+  llamada que nadie atendió tiene `accepted_by_agent_id` vacío, así que pedir
+  sólo esa columna dejaba la solapa "Perdidas" incapaz de devolver una fila.
+- **Sin el `NOT ANSWERED_SQL`, se le entrega una llamada ajena.** Declinar no
+  termina una llamada: el router se la pasa al siguiente agente, que a menudo la
+  contesta. Esa llamada ya no es suya para leer, con su contacto, su
+  conversación y su grabación.
+- **`filter_by_visibility` y `filter_by_agent` tienen que usar las dos la misma
+  definición.** Cuando estaban separadas, la página —que manda siempre el id del
+  propio agente— volvía a filtrar por `accepted_by_agent_id` una línea después
+  y anulaba la visibilidad recién corregida.
+
+**La cifra de perdidas puede ser mayor que el total del listado, y es correcto.**
+`missed_calls` cuenta turnos, igual que los Informes, e incluye las llamadas que
+otro agente terminó rescatando; el listado no las muestra. Son dos preguntas
+distintas —cuántas veces no la tomé, y cuáles puedo abrir— y que otro la
+rescatara no borra lo primero ni da derecho a lo segundo. Decisión de producto,
+no un bug pendiente.
+
+### Qué cuenta como "atendida"
+
+Ni `accepted_by_agent_id` ni `status` lo dicen solos. Quien cuelga mientras
+timbra cae en `completed` sin nadie en la llamada, y `finalize_call!` estampa
+`accepted_by_agent_id` también cuando el agente declina, así que esa columna
+por sí sola acredita un rechazo como si fuera una respuesta. La definición
+buena es `Custom::Call::ANSWERED_SQL`, y de ahí salen los scopes `answered` y
+`unanswered`.
+
+Esa misma regla existe **dos veces**, porque tres superficies tienen que estar
+de acuerdo:
+
+| Dónde | Quién la usa |
+|---|---|
+| `Custom::Call::ANSWERED_SQL` (Ruby) | Informes, `CallFinder`, métricas propias |
+| `isMissedInboundVoiceCall` en `components-next/message/constants.js` | La burbuja de la conversación y el listado de llamadas |
+
+**Nada verifica que sigan alineadas.** Si se toca el scope en Ruby sin tocar el
+helper de JS, el frontend se desalinea en silencio — que es exactamente el bug
+que hacía que la misma llamada saliera "perdida" en los Informes y "Llamada
+finalizada" en la conversación. Al modificar una, revisar la otra.
 
 ### Aprovisionamiento en Twilio
 
@@ -530,6 +608,8 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/controllers/custom/api/v1/accounts/conference_controller.rb` | Token del SDK, entrar a la conferencia y colgar/declinar |
 | `custom/app/controllers/custom/api/v1/accounts/calls_controller.rb` | Listado de llamadas para Informes |
 | `custom/app/controllers/custom/api/v1/accounts/call_stats_controller.rb` | Métricas agregadas de Informes |
+| `custom/app/controllers/custom/api/v1/accounts/my_call_stats_controller.rb` | Las cifras propias del agente, para su página de Llamadas |
+| `custom/app/views/custom/api/v1/accounts/call_stats/csv.csv.erb` | La exportación a CSV de los Informes |
 | `custom/app/controllers/custom/api/v1/accounts/contacts/calls_controller.rb` | Iniciar una llamada saliente a un contacto |
 | `custom/app/finders/custom/call_finder.rb` | Filtrado y paginación del listado |
 | `custom/app/services/custom/voice/inbound_call_builder.rb` | Crea contacto, conversación y llamada para una entrante |
@@ -573,6 +653,10 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `app/javascript/dashboard/routes/dashboard/settings/reports/VoiceChannelsReport.vue` | Sección Llamadas en Informes |
 | `app/javascript/dashboard/routes/dashboard/settings/reports/components/VoiceMetricCards.vue` | Tarjetas de métricas |
 | `app/javascript/dashboard/routes/dashboard/settings/reports/components/VoiceStatsTable.vue` | Tabla por agente |
+| `app/javascript/dashboard/routes/dashboard/calls/pages/CallsIndex.vue` | Página de Llamadas del agente: cifras propias, rango y listado |
+| `app/javascript/dashboard/components-next/Calls/MyCallMetrics.vue` | La franja de cifras propias |
+| `app/javascript/dashboard/api/myCallStats.js` + `stores/myCallStats.js` | Cliente y store de las cifras propias |
+| `app/javascript/dashboard/components-next/message/constants.js` | `isMissedInboundVoiceCall`: la regla de "perdida" que comparten la burbuja y el listado |
 
 La posición del widget y si está minimizado se guardan en `localStorage`
 (`voiceWidgetPosition`, `voiceWidgetMinimized`), así que sobreviven un
@@ -598,7 +682,30 @@ DELETE inboxes/:inbox_id/conference         colgar o declinar
 POST   contacts/:id/call                    iniciar una saliente
 GET    calls                                listado para Informes
 GET    call_stats                           métricas agregadas
+GET    call_stats/csv                       las mismas métricas, en CSV
 ```
+
+El CSV se arma en el servidor y no en el navegador, aunque las filas ya estén
+en el store: los nombres de agente son texto que cargan los usuarios, y uno que
+empiece con `=`, `+`, `-` o `@` se ejecuta como fórmula al abrir el archivo en
+Excel. `CSVSafe` (gema `csv-safe`) es lo que usan todas las exportaciones de la
+app contra eso. Lleva todas las columnas del builder, no sólo las del bloque
+visible, y números crudos en vez de las cadenas formateadas de la pantalla.
+
+Y uno aparte, bajo `/custom/api/v1/accounts/:account_id/`:
+
+```
+GET    my_call_stats                        las cifras del agente que pregunta
+```
+
+Va en su propio controlador y no como una acción más de `call_stats` a
+propósito: aquél está cerrado entero con `authorize :report, :view?` porque sus
+cifras comparan agentes entre sí, y una acción que se saltara esa comprobación
+tendría que excepcionarse del `before_action`, dejando el hueco listo para la
+siguiente que alguien agregue ahí. En `MyCallStatsController` la regla no tiene
+excepciones: la identidad sale de la sesión, la ruta es singular y no acepta un
+id, y la respuesta no lleva `totals` — ésos son de nivel bandeja y le contarían
+al agente cómo le fue al equipo.
 
 ### Bugs encontrados durante el QA (ya corregidos)
 
@@ -629,6 +736,25 @@ trampas que conviene no repetir.
    diferencia; ganaba el webhook y el resultado del agente se perdía en
    silencio. Se resolvió invirtiendo el orden: primero se registra, después se
    desarma la conferencia.
+
+6. **Rechazar y descartar se veían igual** (#50). La ✕ del popup no avisaba al
+   servidor, así que la llamada seguía timbrando hasta que expiraba el turno; se
+   quitó. Y rechazar sí escalaba bien, pero el frontend marcaba el sid como
+   descartado y filtraba todos los eventos posteriores de esa llamada durante el
+   resto de la sesión, así que el agente nunca veía que la llamada seguía viva.
+   `markCallDismissed` es permanente por sesión: usarlo sólo cuando la llamada
+   realmente terminó.
+
+7. **La misma llamada salía "perdida" en Informes y "Llamada finalizada" en la
+   conversación** (#51). Cada superficie preguntaba una cosa distinta —una la
+   asistencia, la otra el status— y se separaban justo en el caso común de quien
+   cuelga mientras timbra. Ver [Qué cuenta como "atendida"](#qué-cuenta-como-atendida).
+
+8. **Un agente no podía ver ni una de sus llamadas perdidas** (#55), así que las
+   cifras de su página contradecían el listado de abajo. Dos causas encadenadas:
+   la visibilidad pedía una columna que una llamada sin atender tiene vacía, y
+   una vez corregida, `filter_by_agent` volvía a aplicar el criterio viejo una
+   línea después y la anulaba. Ver [Qué llamadas ve cada agente](#qué-llamadas-ve-cada-agente).
 
 ### Pendientes conocidos
 

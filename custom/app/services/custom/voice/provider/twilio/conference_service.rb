@@ -46,9 +46,18 @@ module Custom
             Rails.logger.info("VOICE_END_LEG_SKIPPED: call=#{call.id} sid=#{call.provider_call_id} #{e.message}")
           end
 
+          # A click that lands on a call that is already over must not leave a
+          # trace: crediting the agent here also marks their ring turn answered
+          # and hands them the conversation, so an agent who never spoke ends up
+          # owning both. Measured in production: 13 inbound calls sat at
+          # no_answer with an agent on them, and 12 of those conversations were
+          # assigned to somebody who never talked. The conference webhook's own
+          # claim path has always checked this; only the click path did not.
           def claim_call!(user)
             call.with_lock do
+              raise CustomExceptions::CallAlreadyEnded if call.terminal?
               raise_already_accepted!(call.accepted_by_agent) if claimed_by_other_agent?(user)
+
               call.update!(accepted_by_agent: user) if call.accepted_by_agent_id != user.id
             end
 

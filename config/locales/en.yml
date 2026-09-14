@@ -94,6 +94,7 @@ en:
       failed: Signup failed
     voice:
       call_already_accepted: '%{agent_name} is already handling the call.'
+      call_already_ended: 'This call has already ended.'
     assignment_policy:
       not_found: Assignment policy not found
     attachments:
@@ -231,6 +232,22 @@ en:
       avg_resolution_time: Avg resolution time
       resolution_count: Resolution Count
       avg_customer_waiting_time: Avg customer waiting time
+    voice_csv:
+      summary: Summary
+      agent_name: Agent name
+      inbox_name: Inbox name
+      received_calls: Calls received
+      calls_answered: Answered
+      missed_calls: Missed calls
+      unattended_calls: Unattended calls
+      response_rate: Response rate
+      avg_time_to_answer: Avg time to answer (seconds)
+      call_minutes: Minutes on calls
+      outbound_calls: Outgoing calls
+      outbound_call_minutes: Outgoing minutes
+      avg_outbound_duration: Avg outgoing call (seconds)
+      notes: Private notes
+      resolved_conversations: Resolved conversations
     inbox_csv:
       inbox_name: Inbox name
       inbox_type: Inbox type

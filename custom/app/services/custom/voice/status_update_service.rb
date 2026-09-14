@@ -33,11 +33,25 @@ module Custom
         Custom::Voice::CallStatus::Manager.new(call: call).process_status_update(
           normalized_status,
           duration: payload_duration,
-          timestamp: payload_timestamp
+          timestamp: payload_timestamp,
+          end_reason: end_reason_for(normalized_status)
         )
       end
 
       private
+
+      # This webhook tracks the customer's leg — the agent dials in on a second
+      # leg with its own SID, which is not the one stored on the call. So
+      # completed here is the customer's line closing, whether or not an agent
+      # had picked up: a caller who gives up mid-ring lands on completed too,
+      # and they did hang up. The bubble only shows the reason on a call
+      # somebody took, so the unanswered case never reaches a reader.
+      #
+      # Only completed. busy and no-answer mean the customer never picked up at
+      # all, which the status already says and which nobody hung up on.
+      def end_reason_for(status)
+        Custom::Call::CALLER_HANGUP if status == 'completed'
+      end
 
       def normalize_status(status)
         return if status.to_s.strip.empty?

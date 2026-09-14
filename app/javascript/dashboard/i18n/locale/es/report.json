@@ -543,6 +543,8 @@
   },
   "VOICE_REPORTS": {
     "HEADER": "Informes de llamadas",
+    "DOWNLOAD": "Descargar CSV",
+    "DOWNLOAD_FAILED": "No se pudo descargar el informe. Intentá de nuevo.",
     "LOADING": "Cargando métricas de llamadas...",
     "EMPTY": "No hay llamadas en este período.",
     "UNASSIGNED": "Sin asignar",
