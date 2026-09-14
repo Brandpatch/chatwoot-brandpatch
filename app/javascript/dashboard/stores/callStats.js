@@ -55,6 +55,11 @@ export const useCallStatsStore = defineStore('callStats', {
         group_by: groupBy,
         since,
         until,
+        // The range is worked out in this browser's time zone, so the end of a
+        // day reaches the server as an instant that is already the next day in
+        // UTC. Sent along so the period printed in the file reads back as the
+        // days the screen showed. Negated: getTimezoneOffset reports inverted.
+        utc_offset: -new Date().getTimezoneOffset(),
         ...(inboxId ? { inbox_id: inboxId } : {}),
       });
       downloadCsvFile(fileName, data);

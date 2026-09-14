@@ -31,13 +31,8 @@ module Custom
             # Resolved here, not read from params in the template: both ends are
             # optional and fall back to a default window, so the file has to
             # state the period actually used rather than what was asked for.
-            #
-            # Printed in UTC, like every other export. The end of the range is
-            # 23:59:59 of the last day, and reading that through the app's time
-            # zone rolls it into the next one — the file claimed a day the
-            # reader had not asked for, and disagreed with its own name.
-            @period_since = date_range.first.utc.to_date
-            @period_until = date_range.last.utc.to_date
+            @period_since = local_date(date_range.first)
+            @period_until = local_date(date_range.last)
 
             # No Content-Disposition: the dashboard reads the body and saves it
             # through a blob, naming the file itself with the same helper every
@@ -75,6 +70,23 @@ module Custom
             render json: {
               error: "group_by must be one of: #{Custom::Voice::CallStatsBuilder::GROUPINGS.join(', ')}"
             }, status: :unprocessable_entity
+          end
+
+          # The dashboard works out the range in the reader's own time zone, so
+          # the end of a day arrives as an instant that is already the next day
+          # in UTC — for UTC-4, 23:59:59 of the 12th is 03:59:59 of the 13th.
+          # Printing that instant's UTC date made the file claim a day nobody
+          # asked for. The offset comes with the request so the dates read back
+          # the way the screen showed them, wherever the reader is.
+          def local_date(time)
+            (time + utc_offset_minutes.minutes).utc.to_date
+          end
+
+          # Minutes to add to UTC, as the browser's getTimezoneOffset reports it
+          # inverted. Clamped to the real range so a junk value cannot shift the
+          # header into a different day.
+          def utc_offset_minutes
+            @utc_offset_minutes ||= params[:utc_offset].to_i.clamp(-14 * 60, 14 * 60)
           end
 
           def date_range
