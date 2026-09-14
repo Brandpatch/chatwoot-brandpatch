@@ -24,6 +24,11 @@ module Custom
           # every other export in this app uses against that, and this file
           # opens on an administrator's machine.
           def csv
+            # Checked here, in this format, rather than trusting the shared
+            # handler: it answers a refusal with `render json:`, which does not
+            # stop a request whose format is csv, so the guard raised and the
+            # file was served anyway. These figures cover every agent.
+            return head :unauthorized unless authorized_to_view_reports?
             return render_invalid_grouping if grouping.blank?
 
             @stats = stats
@@ -58,6 +63,13 @@ module Custom
           # each other, so they are not for every agent to read.
           def check_authorization
             authorize :report, :view?
+          end
+
+          # Same policy the guard uses, asked directly so the answer is a
+          # boolean this action can act on instead of an exception someone else
+          # renders.
+          def authorized_to_view_reports?
+            ReportPolicy.new(pundit_user, :report).view?
           end
 
           def grouping
