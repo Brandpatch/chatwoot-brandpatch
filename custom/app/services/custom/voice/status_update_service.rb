@@ -41,11 +41,14 @@ module Custom
       private
 
       # This webhook tracks the customer's leg — the agent dials in on a second
-      # leg with its own SID, which is not the one stored on the call. A call
-      # that was connected and now reads completed is the customer's line
-      # closing, so they are the one who hung up. Only that one: busy and
-      # no-answer mean the customer never picked up, which the status already
-      # says and nobody hung up on.
+      # leg with its own SID, which is not the one stored on the call. So
+      # completed here is the customer's line closing, whether or not an agent
+      # had picked up: a caller who gives up mid-ring lands on completed too,
+      # and they did hang up. The bubble only shows the reason on a call
+      # somebody took, so the unanswered case never reaches a reader.
+      #
+      # Only completed. busy and no-answer mean the customer never picked up at
+      # all, which the status already says and which nobody hung up on.
       def end_reason_for(status)
         Custom::Call::CALLER_HANGUP if status == 'completed'
       end
