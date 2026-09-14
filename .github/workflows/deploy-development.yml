@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/voice-agent-personal-stats
 
 jobs:
   build-and-push:
