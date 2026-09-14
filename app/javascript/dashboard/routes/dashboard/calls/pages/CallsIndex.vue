@@ -9,21 +9,28 @@ import { usePolicy } from 'dashboard/composables/usePolicy';
 import { isVoiceCallEnabled } from 'dashboard/helper/inbox';
 import { FEATURE_FLAGS } from 'dashboard/featureFlags';
 import { useCallHistoryStore } from 'dashboard/stores/callHistory';
+import { useMyCallStatsStore } from 'dashboard/stores/myCallStats';
+import { subDays, fromUnixTime } from 'date-fns';
+import { getUnixStartOfDay, getUnixEndOfDay } from 'helpers/DateHelper';
 
 import CallListItem from 'dashboard/components-next/Calls/CallListItem.vue';
 import CallsEmptyState from 'dashboard/components-next/Calls/CallsEmptyState.vue';
 import CallsFilterBar from 'dashboard/components-next/Calls/CallsFilterBar.vue';
+import MyCallMetrics from 'dashboard/components-next/Calls/MyCallMetrics.vue';
+import WootDatePicker from 'dashboard/components/ui/DatePicker/DatePicker.vue';
 import { CALL_ACTIVITY_PARAMS } from 'dashboard/components-next/Calls/constants';
 import PaginationFooter from 'dashboard/components-next/pagination/PaginationFooter.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 
 const RESULTS_PER_PAGE = 25;
+const DEFAULT_DAYS_BACK = 6;
 
 const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
 const callHistoryStore = useCallHistoryStore();
+const myCallStatsStore = useMyCallStatsStore();
 
 const inboxes = useMapGetter('inboxes/getInboxes');
 const accountId = useMapGetter('getCurrentAccountId');
@@ -77,6 +84,26 @@ const assigneeId = ref(
 const inboxId = ref(Number(route.query.inbox_id) || null);
 const currentPage = ref(Number(route.query.page) || 1);
 
+// One period governs both the figures and the list under them. Letting them
+// drift apart is how a strip ends up claiming three missed calls over a list
+// that shows none.
+const urlFrom = Number(route.query.from);
+const urlTo = Number(route.query.to);
+const dateRange = ref(
+  urlFrom && urlTo
+    ? [fromUnixTime(urlFrom), fromUnixTime(urlTo)]
+    : [subDays(new Date(), DEFAULT_DAYS_BACK), new Date()]
+);
+const rangeType = ref(route.query.range || 'last7days');
+
+// Named ...Ts rather than since/until because `until` in this file is already
+// vueuse's, used below to wait on the account flags.
+const sinceTs = computed(() => getUnixStartOfDay(dateRange.value[0]));
+const untilTs = computed(() => getUnixEndOfDay(dateRange.value[1]));
+
+const mySummary = computed(() => myCallStatsStore.summary);
+const isFetchingSummary = computed(() => myCallStatsStore.uiFlags.isFetching);
+
 const syncFiltersToUrl = () => {
   router.replace({
     query: {
@@ -85,6 +112,9 @@ const syncFiltersToUrl = () => {
         assigneeId.value && { assignee_id: assigneeId.value }),
       ...(inboxId.value && { inbox_id: inboxId.value }),
       ...(currentPage.value > 1 && { page: currentPage.value }),
+      from: sinceTs.value,
+      to: untilTs.value,
+      range: rangeType.value,
     },
   });
 };
@@ -94,6 +124,8 @@ const fetchCalls = async () => {
   try {
     await callHistoryStore.fetchCalls({
       page: currentPage.value,
+      since: sinceTs.value,
+      until: untilTs.value,
       ...(CALL_ACTIVITY_PARAMS[activity.value] || {}),
       ...(assigneeId.value ? { agent_id: assigneeId.value } : {}),
       ...(inboxId.value ? { inbox_id: inboxId.value } : {}),
@@ -103,10 +135,30 @@ const fetchCalls = async () => {
   }
 };
 
+// The strip is the reader's own activity, so it follows the period and the
+// inbox but never the assignee filter: an administrator narrowing the list to
+// somebody else is still reading their own figures above it.
+const fetchMySummary = () =>
+  myCallStatsStore.fetchSummary({
+    since: sinceTs.value,
+    until: untilTs.value,
+    inboxId: inboxId.value,
+  });
+
+const onDateRangeChange = ([startDate, endDate, selectedRangeType]) => {
+  dateRange.value = [startDate, endDate];
+  rangeType.value = selectedRangeType;
+  currentPage.value = 1;
+  fetchCalls();
+  fetchMySummary();
+};
+
 watch([activity, assigneeId, inboxId], () => {
   currentPage.value = 1;
   fetchCalls();
 });
+
+watch(inboxId, fetchMySummary);
 
 const onPageChange = page => {
   currentPage.value = page;
@@ -122,7 +174,7 @@ onMounted(async () => {
     if (!isVoiceEnabled.value) return;
     // Only those who see the assignee filter need the agent list.
     if (hasAccountWideAccess.value) store.dispatch('agents/get');
-    await fetchCalls();
+    await Promise.all([fetchCalls(), fetchMySummary()]);
   } finally {
     isInitializing.value = false;
   }
@@ -146,6 +198,16 @@ onMounted(async () => {
         <h1 class="text-xl font-medium text-n-slate-12">
           {{ t('CALLS_PAGE.HEADER') }}
         </h1>
+      </div>
+      <div class="w-full px-6 mt-4">
+        <WootDatePicker
+          v-model:date-range="dateRange"
+          v-model:range-type="rangeType"
+          @date-range-changed="onDateRangeChange"
+        />
+      </div>
+      <div class="w-full px-6 mt-4">
+        <MyCallMetrics :summary="mySummary" :is-loading="isFetchingSummary" />
       </div>
       <CallsFilterBar
         v-model:activity="activity"
