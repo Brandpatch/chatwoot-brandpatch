@@ -14,5 +14,11 @@ const sortIconMap = {
 </script>
 
 <template>
-  <span :class="sortIconMap[header.column.getIsSorted() || 'default']" />
+  <!-- Sized and kept from shrinking: the icon is measured in em inside a flex
+       header, so a title that wraps to two lines squeezed it smaller than the
+       one next to it. -->
+  <span
+    class="shrink-0 size-3.5"
+    :class="sortIconMap[header.column.getIsSorted() || 'default']"
+  />
 </template>
