@@ -68,8 +68,13 @@ module Custom
           # Same policy the guard uses, asked directly so the answer is a
           # boolean this action can act on instead of an exception someone else
           # renders.
+          #
+          # Rooted with :: on purpose. Inside module Custom, a bare ReportPolicy
+          # resolves to Custom::ReportPolicy first — which exists, and is the
+          # module prepended onto the real one, not a class. Calling .new on it
+          # is what turned the refusal into a 500.
           def authorized_to_view_reports?
-            ReportPolicy.new(pundit_user, :report).view?
+            ::ReportPolicy.new(pundit_user, :report).view?
           end
 
           def grouping
