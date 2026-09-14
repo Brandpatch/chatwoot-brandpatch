@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-claim-ended-call
 
 jobs:
   build-and-push:
