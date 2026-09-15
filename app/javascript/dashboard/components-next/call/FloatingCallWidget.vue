@@ -12,7 +12,6 @@ import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
-import { requestPushPermissions } from 'dashboard/helper/pushHelper';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import MinimizedCallBubble from 'dashboard/components-next/call/MinimizedCallBubble.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -335,31 +334,6 @@ const ringingInboundCalls = computed(() =>
       )
 );
 
-// Read once per mount rather than watched: the browser only changes it through
-// a prompt we raise ourselves, and a denial is final until the agent clears it
-// from the site settings — so 'default' is the only state worth offering a
-// button for, and an agent who said no is never asked again.
-const notificationPermission = ref(
-  'Notification' in window ? Notification.permission : 'denied'
-);
-
-const enableNotifications = () => {
-  requestPushPermissions({
-    onSuccess: () => {
-      notificationPermission.value = 'granted';
-    },
-  });
-};
-
-// The permission lives in a profile setting nobody goes looking for, so ask
-// where it matters: while a call is ringing, from the widget the agent is
-// already looking at.
-const canAskToNotify = computed(
-  () =>
-    notificationPermission.value === 'default' &&
-    ringingInboundCalls.value.length > 0
-);
-
 // Loop the ringtone while an inbound call is unanswered, and stop the moment
 // one is active (we joined) or they all clear. The watcher fires on the boolean
 // transitioning, so a call arriving while another already rings doesn't restart
@@ -469,21 +443,6 @@ onBeforeUnmount(() => {
           @click="isMinimized = true"
         />
       </div>
-
-      <!-- Desktop alerts are off and this is the one moment the agent cares. -->
-      <button
-        v-if="canAskToNotify"
-        type="button"
-        class="flex items-center justify-between gap-2 px-3 py-2 text-left rounded-lg bg-n-call-widget shadow-xl outline outline-1 outline-n-call-widget-border backdrop-blur-md"
-        @click="enableNotifications"
-      >
-        <span class="text-xs text-n-call-widget-sub-text">
-          {{ $t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS') }}
-        </span>
-        <span class="text-xs font-medium text-n-blue-10">
-          {{ $t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS_ACTION') }}
-        </span>
-      </button>
 
       <!-- Stacked incoming calls (shown above the primary card) -->
       <CallCard
