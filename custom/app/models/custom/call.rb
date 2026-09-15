@@ -140,6 +140,9 @@ module Custom
     def assign_conversation_to!(user_id)
       return if conversation.assigned_entity.present? && !conversation_created
 
+      # Silently: the call is what the agent has to be told about, and the
+      # assignment alert would announce it as a chat. See Custom::Conversation.
+      conversation.brandpatch_silent_assignment = true
       ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
     end
 
@@ -160,7 +163,16 @@ module Custom
                 # sequences happened to march together.
                 conversation_id: conversation.display_id, account_id: account_id,
                 inbox_id: inbox_id,
-                current_ring_agent_id: current_ring_agent_id }.merge(extra)
+                current_ring_agent_id: current_ring_agent_id,
+                # Who is calling, on every event. Without it the ring event
+                # carries no identity at all, and the dashboard has nothing to
+                # show until the call's message arrives over a separate
+                # broadcast — so the card and the desktop notification both
+                # name an "Unknown caller" we have known all along.
+                #
+                # After merge(extra) so a caller passed in by a provider that
+                # knows better still wins.
+                caller: { name: contact.name, phone: contact.phone_number, avatar: contact.avatar_url } }.merge(extra)
       }
       ActionCable.server.broadcast("account_#{account_id}", payload)
     end

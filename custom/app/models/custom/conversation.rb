@@ -18,7 +18,26 @@ module Custom
     #
     # Skipping the stamp leaves the conversation unassigned until somebody
     # actually takes the call, which is also the honest state: nobody has.
-    attr_accessor :brandpatch_skip_auto_assignment
+    attr_accessor :brandpatch_skip_auto_assignment, :brandpatch_silent_assignment
+
+    # The owner following the ring turn is bookkeeping, not news. The agent is
+    # already being told about the call by the call itself — the widget, the
+    # ringtone and the desktop notification — and Chatwoot's assignment alert
+    # says "a conversation has been assigned to you", which names a chat and not
+    # a call.
+    #
+    # It also fires once per turn rather than once per call: 199 inbound calls
+    # on 2026-09-15 took 248 turns, and every one of them mailed and pushed the
+    # agent. Before the owner started following the turn the same assignment ran
+    # under the agent's own click, which self_assign? discards, so none of this
+    # was ever visible. See Custom::Call#assign_conversation_to!.
+    #
+    # Public because it is public on ::Conversation; a prepend must not narrow it.
+    def notifiable_assignee_change?
+      return false if brandpatch_silent_assignment
+
+      super
+    end
 
     private
 
