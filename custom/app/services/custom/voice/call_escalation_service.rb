@@ -33,6 +33,9 @@ module Custom
 
         Custom::Voice::RingAttemptTracker.close!(call, outcome, agent_id: previous_agent_id)
         Custom::Voice::RingAttemptTracker.open!(call, agent.id)
+        # The owner follows the turn, so the conversation always belongs to
+        # whoever the phone is ringing. See Custom::Call#assign_conversation_to!.
+        call.assign_conversation_to!(agent.id)
 
         call.broadcast_voice_call_event(:ring_reassigned,
                                         previous_agent_id: previous_agent_id,
