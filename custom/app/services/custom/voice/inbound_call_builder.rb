@@ -72,12 +72,19 @@ module Custom
         return reusable if reusable
 
         @conversation_created = true
-        account.conversations.create!(
+        # Built and saved in two steps so the flag is set before the callbacks
+        # run: auto-assignment fires on save, and skipping it is the whole point
+        # — see Custom::Conversation. The owner is stamped by
+        # assign_conversation_to! when an agent actually answers.
+        conversation = account.conversations.new(
           contact_inbox_id: contact_inbox.id,
           inbox_id: inbox.id,
           contact_id: contact.id,
           status: :open
         )
+        conversation.brandpatch_skip_auto_assignment = true
+        conversation.save!
+        conversation
       end
 
       def create_call!(contact, conversation)
