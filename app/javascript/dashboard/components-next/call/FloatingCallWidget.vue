@@ -12,6 +12,8 @@ import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
+import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
+import { useAlert } from 'dashboard/composables';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import MinimizedCallBubble from 'dashboard/components-next/call/MinimizedCallBubble.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -384,7 +386,24 @@ watch(
   { immediate: true }
 );
 
+// Surfaced here rather than where the client lives, because only a component
+// has a translator. The widget is mounted whenever there is a call, which is
+// exactly when a Device error is worth showing.
+const handleDeviceError = event => {
+  const { code } = event.detail || {};
+  useAlert(
+    code
+      ? t('CONVERSATION.VOICE_WIDGET.DEVICE_ERROR', { code })
+      : t('CONTACT_PANEL.CALL_FAILED')
+  );
+};
+
+onMounted(() =>
+  TwilioVoiceClient.addEventListener('device:error', handleDeviceError)
+);
+
 onBeforeUnmount(() => {
+  TwilioVoiceClient.removeEventListener('device:error', handleDeviceError);
   stopRingtone();
   syncIncomingCallNotifications([]);
 });
@@ -452,7 +471,7 @@ onBeforeUnmount(() => {
         :state="stackedCardState(call)"
         :call-info="getCallInfo(call)"
         @accept="handleJoinCall(call)"
-        @reject="rejectIncomingCall(call.callSid)"
+        @reject="rejectIncomingCall(call)"
         @go-to-conversation="goToConversation(call)"
       />
 
@@ -466,7 +485,7 @@ onBeforeUnmount(() => {
         :is-muted="isMuted"
         :show-mute="hasActiveCall"
         @accept="handleJoinCall(primaryIncomingCall)"
-        @reject="rejectIncomingCall(primaryIncomingCall?.callSid)"
+        @reject="rejectIncomingCall(primaryIncomingCall)"
         @end="handleEndCall"
         @toggle-mute="toggleMute"
         @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"
