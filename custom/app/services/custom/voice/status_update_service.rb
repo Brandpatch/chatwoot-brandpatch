@@ -5,6 +5,10 @@ module Custom
     class StatusUpdateService
       pattr_initialize [:account!, :call_sid!, :call_status, { payload: {} }]
 
+      # Enough to tell one ending from another without copying the customer's
+      # number into the logs.
+      LOGGED_PAYLOAD_KEYS = %w[CallStatus ErrorCode ErrorMessage SipResponseCode Direction].freeze
+
       TWILIO_STATUS_MAP = {
         'queued'      => 'ringing',
         'initiated'   => 'ringing',
@@ -30,15 +34,63 @@ module Custom
         call = Custom::Call.where(account_id: account.id).find_by(provider: :twilio, provider_call_id: call_sid)
         return unless call
 
+        log_failure_payload(call) if log_failure?(call, normalized_status)
+
         Custom::Voice::CallStatus::Manager.new(call: call).process_status_update(
           normalized_status,
           duration: payload_duration,
           timestamp: payload_timestamp,
-          end_reason: end_reason_for(normalized_status)
+          end_reason: end_reason_for(normalized_status),
+          failure: failure_for(call)
         )
       end
 
       private
+
+      # Twilio says why a call never connected, and until now this webhook threw
+      # it away — so a call to a number that does not exist read as "the contact
+      # didn't pick up", and the agent kept dialling it.
+      #
+      # Outbound only. An inbound call that fails did so before reaching us, and
+      # there is nothing the agent could do about it.
+      def failure_for(call)
+        return unless call.outgoing?
+        return if error_code.blank?
+
+        { reason: Custom::Call.failure_reason_for(error_code), error_code: error_code.to_s }
+      end
+
+      def error_code
+        return unless payload.is_a?(Hash)
+
+        @error_code ||= payload['ErrorCode'].presence || payload['error_code'].presence
+      end
+
+      # Every outbound ending that never connected, with or without a code.
+      #
+      # Logging only the ones that carry a code left no trace of the ones that
+      # do not, which is the case worth knowing about: Twilio reported three
+      # identical calls to the same unassigned number as failed-with-code,
+      # failed-without-code and busy. Without a line for the last two there is
+      # no way to tell how often the provider stays silent, short of reading
+      # raw webhooks by hand.
+      def log_failure?(call, status)
+        return false unless call.outgoing?
+
+        error_code.present? || %w[failed no_answer].include?(status)
+      end
+
+      # Logged whole because the mapping is partial by design: an ending nobody
+      # anticipated is easier to name from the payload that produced it than
+      # from a code alone. SipResponseCode is in there because it says more than
+      # the status does — a 404 is an unassigned number — and it may turn out to
+      # be there on the endings that carry no ErrorCode.
+      def log_failure_payload(call)
+        Rails.logger.info(
+          "[voice] call=#{call.id} sid=#{call_sid} status=#{call_status} " \
+          "error_code=#{error_code} payload=#{payload.slice(*LOGGED_PAYLOAD_KEYS)}"
+        )
+      end
 
       # This webhook tracks the customer's leg — the agent dials in on a second
       # leg with its own SID, which is not the one stored on the call. So
