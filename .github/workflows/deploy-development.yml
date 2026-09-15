@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-ghost-ringtone
 
 jobs:
   build-and-push:
