@@ -32,6 +32,8 @@ module Custom
         return render xml: reject_twiml if reject_inbound?
 
         call = resolve_call
+        return render xml: hangup_twiml if joining_a_dead_call?(call)
+
         render xml: conference_twiml(call)
       end
 
@@ -97,6 +99,32 @@ module Custom
 
       def reject_twiml
         ::Twilio::TwiML::VoiceResponse.new(&:reject).to_s
+      end
+
+      # The agent dials in on a leg of their own, and it asks for this TwiML
+      # after the customer's leg may already have died — measured at 506ms past
+      # the webhook that ended the call. Sending them into the conference then
+      # left them alone with hold music and no card to hang up from: the widget
+      # had closed on that same status update.
+      #
+      # Answered here rather than by tearing the conference down from the status
+      # webhook because the agent is the one who starts it
+      # (start_conference_on_enter), so at webhook time there is often no
+      # conference to close yet. By the time this request arrives the outcome is
+      # already recorded, so there is no race left to lose.
+      #
+      # Outbound only, and only a call that never connected: started_at is
+      # stamped on in_progress, so an agent rejoining a conversation that is
+      # actually happening still gets the conference.
+      def joining_a_dead_call?(call)
+        return false unless agent_leg?(twilio_from)
+        return false unless call.outgoing?
+
+        call.terminal? && call.started_at.blank?
+      end
+
+      def hangup_twiml
+        ::Twilio::TwiML::VoiceResponse.new(&:hangup).to_s
       end
 
       def resolve_call
