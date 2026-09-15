@@ -414,7 +414,12 @@
       "VIEW_CHAT_HISTORY": "View chat history",
       "MINIMIZE": "Minimize",
       "DRAG_TO_MOVE": "Drag to move",
-      "GO_TO_CONVERSATION": "Go to conversation thread"
+      "GO_TO_CONVERSATION": "Go to conversation thread",
+      "DESKTOP_NOTIFICATION_TITLE": "Incoming call from {name}",
+      "SOUND_BLOCKED": "Your browser blocked the ringtone",
+      "SOUND_BLOCKED_ACTION": "Enable sound",
+      "ENABLE_NOTIFICATIONS": "Get a desktop alert for incoming calls",
+      "ENABLE_NOTIFICATIONS_ACTION": "Enable"
     }
   },
   "EMAIL_TRANSCRIPT": {
