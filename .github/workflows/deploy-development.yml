@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/voice-call-failure-reason
 
 jobs:
   build-and-push:
