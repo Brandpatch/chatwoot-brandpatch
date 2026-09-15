@@ -32,6 +32,8 @@ module Custom
         return render xml: reject_twiml if reject_inbound?
 
         call = resolve_call
+        return render xml: hangup_twiml if joining_a_dead_call?(call)
+
         render xml: conference_twiml(call)
       end
 
@@ -97,6 +99,43 @@ module Custom
 
       def reject_twiml
         ::Twilio::TwiML::VoiceResponse.new(&:reject).to_s
+      end
+
+      # The agent dials in on a leg of their own, and it asks for this TwiML
+      # after the customer's leg may already have died — measured at 506ms past
+      # the webhook that ended the call. Sending them into the conference then
+      # left them alone with hold music and no card to hang up from: the widget
+      # had closed on that same status update.
+      #
+      # Answered here rather than by tearing the conference down from the status
+      # webhook because the agent is the one who starts it
+      # (start_conference_on_enter), so at webhook time there is often no
+      # conference to close yet. By the time this request arrives the outcome is
+      # already recorded, so there is no race left to lose.
+      #
+      # Outbound only, and only a call this agent has not already been part of.
+      # started_at is stamped when a participant joins the conference, not when
+      # the customer picks up — Conference::Manager#join_agent! is its only
+      # writer — so a call that has one is a call whose conference this agent
+      # already entered, and rejoining it is legitimate: a reconnect after a
+      # dropped socket, a second tab. Only a call that died before they ever got
+      # in is the one with nothing to come back to.
+      #
+      # That makes this narrow on purpose: measured over five failed calls, four
+      # had already been joined once and only one was caught here. The frontend
+      # check in joinCall is what stops most of them, before the leg is even
+      # dialled; this is the backstop for the ordering the frontend cannot see,
+      # where the provider reports the death after the agent's leg is already on
+      # its way (measured at 506ms).
+      def joining_a_dead_call?(call)
+        return false unless agent_leg?(twilio_from)
+        return false unless call.outgoing?
+
+        call.terminal? && call.started_at.blank?
+      end
+
+      def hangup_twiml
+        ::Twilio::TwiML::VoiceResponse.new(&:hangup).to_s
       end
 
       def resolve_call
