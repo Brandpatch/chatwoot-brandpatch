@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/voice-incoming-call-notification
 
 jobs:
   build-and-push:
