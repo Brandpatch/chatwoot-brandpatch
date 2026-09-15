@@ -116,7 +116,7 @@
       "CALL_IN_PROGRESS": "Call in progress",
       "NO_ANSWER": "No answer",
       "NO_ANSWER_OUTBOUND_LABEL": "No answer",
-      "NO_ANSWER_OUTBOUND_SUBTEXT": "The call wasn't answered",
+      "NO_ANSWER_OUTBOUND_SUBTEXT": "Contact didn't pick up",
       "FAILURE_UNREACHABLE_NUMBER": "This number doesn't exist",
       "FAILURE_INVALID_NUMBER": "This number isn't valid",
       "FAILURE_LINE_BUSY": "The line was busy",

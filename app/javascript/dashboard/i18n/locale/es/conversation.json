@@ -106,7 +106,7 @@
       "CALL_IN_PROGRESS": "Llamada en curso",
       "NO_ANSWER": "Sin respuesta",
       "NO_ANSWER_OUTBOUND_LABEL": "Sin respuesta",
-      "NO_ANSWER_OUTBOUND_SUBTEXT": "La llamada no fue atendida",
+      "NO_ANSWER_OUTBOUND_SUBTEXT": "El contacto no ha atendido",
       "FAILURE_UNREACHABLE_NUMBER": "Este número no existe",
       "FAILURE_INVALID_NUMBER": "Este número no es válido",
       "FAILURE_LINE_BUSY": "La línea estaba ocupada",

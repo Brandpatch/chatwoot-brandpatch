@@ -220,12 +220,12 @@ const subtext = computed(() => {
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
     if (isOutbound.value) {
-      // The generic line only claims the contact didn't answer when nothing
-      // else is known; the provider's reason wins whenever it reached us.
+      // An outbound call that failed without a reason falls back to the same
+      // line as an unmapped one: both mean the call never connected and we
+      // cannot say more. Saying the contact didn't pick up would be false —
+      // a number that does not exist never rang for anybody to ignore.
       return t(
-        `CONVERSATION.VOICE_CALL.${
-          failureSubtextKey.value ?? 'NO_ANSWER_OUTBOUND_SUBTEXT'
-        }`
+        `CONVERSATION.VOICE_CALL.${failureSubtextKey.value ?? 'FAILURE_UNREACHABLE'}`
       );
     }
     if (wasDeclinedByAgent.value && displayAgentName.value) {
