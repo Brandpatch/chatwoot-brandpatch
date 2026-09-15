@@ -10,6 +10,7 @@ import AudioPlayer from 'dashboard/components-next/audio/AudioPlayer.vue';
 import {
   VOICE_CALL_DIRECTION,
   VOICE_CALL_STATUS,
+  VOICE_CALL_FAILURE_REASON,
 } from 'dashboard/components-next/message/constants';
 import CallStatusBadge from './CallStatusBadge.vue';
 import { CALL_KIND, getCallKind } from './constants';
@@ -46,7 +47,27 @@ const agentActionLabel = computed(() => {
   return '';
 });
 
+// Why an outbound call never connected, when the provider said so. Shares the
+// bubble's strings so the same call reads the same in both places.
+const FAILURE_LABEL_KEY = {
+  [VOICE_CALL_FAILURE_REASON.INVALID_NUMBER]: 'FAILURE_INVALID_NUMBER',
+  [VOICE_CALL_FAILURE_REASON.UNREACHABLE_NUMBER]: 'FAILURE_UNREACHABLE_NUMBER',
+  [VOICE_CALL_FAILURE_REASON.LINE_BUSY]: 'FAILURE_LINE_BUSY',
+  [VOICE_CALL_FAILURE_REASON.CALL_BLOCKED]: 'FAILURE_CALL_BLOCKED',
+  [VOICE_CALL_FAILURE_REASON.DESTINATION_NOT_ALLOWED]:
+    'FAILURE_DESTINATION_NOT_ALLOWED',
+  [VOICE_CALL_FAILURE_REASON.CARRIER_REJECTED]: 'FAILURE_CARRIER_REJECTED',
+  [VOICE_CALL_FAILURE_REASON.UNREACHABLE]: 'FAILURE_UNREACHABLE',
+};
+
 const resultLabel = computed(() => {
+  // Ahead of the per-kind lines below: the provider's reason is the specific
+  // answer, and those are the generic ones. It lands on both FAILED and
+  // NO_REPLY because Twilio does not always call the same ending by the same
+  // name — one unreachable number came back as 'busy'.
+  const failureKey = FAILURE_LABEL_KEY[props.call.failureReason];
+  if (failureKey) return t(`CONVERSATION.VOICE_CALL.${failureKey}`);
+
   if (kind.value === CALL_KIND.MISSED) {
     // A declined call was missed too, but somebody made that call — saying no
     // agent answered would hide who did.
