@@ -9,6 +9,7 @@ import {
   VOICE_CALL_DIRECTION,
   VOICE_CALL_OUTBOUND_INIT_STATUS,
   VOICE_CALL_END_REASON,
+  VOICE_CALL_FAILURE_REASON,
   MESSAGE_TYPES,
   ATTACHMENT_TYPES,
   isMissedInboundVoiceCall,
@@ -107,6 +108,25 @@ const isFailed = computed(
     ].includes(status.value)
 );
 const endReason = computed(() => call.value?.endReason);
+
+// Why an outbound call never connected, when the provider said so. Without it
+// every failure read "the contact didn't pick up", which is false for a number
+// that does not exist — nobody failed to answer, there was nobody to answer —
+// and left the agent dialling a bad number all afternoon.
+const FAILURE_SUBTEXT_KEY = {
+  [VOICE_CALL_FAILURE_REASON.INVALID_NUMBER]: 'FAILURE_INVALID_NUMBER',
+  [VOICE_CALL_FAILURE_REASON.UNREACHABLE_NUMBER]: 'FAILURE_UNREACHABLE_NUMBER',
+  [VOICE_CALL_FAILURE_REASON.LINE_BUSY]: 'FAILURE_LINE_BUSY',
+  [VOICE_CALL_FAILURE_REASON.CALL_BLOCKED]: 'FAILURE_CALL_BLOCKED',
+  [VOICE_CALL_FAILURE_REASON.DESTINATION_NOT_ALLOWED]:
+    'FAILURE_DESTINATION_NOT_ALLOWED',
+  [VOICE_CALL_FAILURE_REASON.CARRIER_REJECTED]: 'FAILURE_CARRIER_REJECTED',
+  [VOICE_CALL_FAILURE_REASON.UNREACHABLE]: 'FAILURE_UNREACHABLE',
+};
+
+const failureSubtextKey = computed(
+  () => FAILURE_SUBTEXT_KEY[call.value?.failureReason]
+);
 const wasDeclinedByAgent = computed(
   () =>
     isMissedInbound.value &&
@@ -200,7 +220,13 @@ const subtext = computed(() => {
   if (isFailed.value) {
     // Missed/failed calls have no handler, so keep the reason rather than "Handled by".
     if (isOutbound.value) {
-      return t('CONVERSATION.VOICE_CALL.NO_ANSWER_OUTBOUND_SUBTEXT');
+      // The generic line only claims the contact didn't answer when nothing
+      // else is known; the provider's reason wins whenever it reached us.
+      return t(
+        `CONVERSATION.VOICE_CALL.${
+          failureSubtextKey.value ?? 'NO_ANSWER_OUTBOUND_SUBTEXT'
+        }`
+      );
     }
     if (wasDeclinedByAgent.value && displayAgentName.value) {
       return t('CONVERSATION.VOICE_CALL.MISSED_CALL_DECLINED_BY', {
