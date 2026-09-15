@@ -113,9 +113,20 @@ module Custom
       # conference to close yet. By the time this request arrives the outcome is
       # already recorded, so there is no race left to lose.
       #
-      # Outbound only, and only a call that never connected: started_at is
-      # stamped on in_progress, so an agent rejoining a conversation that is
-      # actually happening still gets the conference.
+      # Outbound only, and only a call this agent has not already been part of.
+      # started_at is stamped when a participant joins the conference, not when
+      # the customer picks up — Conference::Manager#join_agent! is its only
+      # writer — so a call that has one is a call whose conference this agent
+      # already entered, and rejoining it is legitimate: a reconnect after a
+      # dropped socket, a second tab. Only a call that died before they ever got
+      # in is the one with nothing to come back to.
+      #
+      # That makes this narrow on purpose: measured over five failed calls, four
+      # had already been joined once and only one was caught here. The frontend
+      # check in joinCall is what stops most of them, before the leg is even
+      # dialled; this is the backstop for the ordering the frontend cannot see,
+      # where the provider reports the death after the agent's leg is already on
+      # its way (measured at 506ms).
       def joining_a_dead_call?(call)
         return false unless agent_leg?(twilio_from)
         return false unless call.outgoing?
