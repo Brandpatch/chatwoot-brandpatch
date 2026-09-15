@@ -383,8 +383,6 @@
       "DRAG_TO_MOVE": "Arrastrar para mover",
       "GO_TO_CONVERSATION": "Ir al hilo de conversación",
       "DESKTOP_NOTIFICATION_TITLE": "Llamada entrante de {name}",
-      "SOUND_BLOCKED": "El navegador bloqueó el tono de llamada",
-      "SOUND_BLOCKED_ACTION": "Activar sonido",
       "ENABLE_NOTIFICATIONS": "Recibir un aviso de escritorio en cada llamada",
       "ENABLE_NOTIFICATIONS_ACTION": "Activar"
     }

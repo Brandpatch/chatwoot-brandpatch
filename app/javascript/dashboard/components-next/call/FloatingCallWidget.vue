@@ -11,7 +11,6 @@ import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
-import { startRingtone, stopRingtone } from 'dashboard/helper/callRingtone';
 import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
 import { requestPushPermissions } from 'dashboard/helper/pushHelper';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
@@ -21,6 +20,8 @@ import Icon from 'dashboard/components-next/icon/Icon.vue';
 import { LocalStorage } from 'shared/helpers/localStorage';
 import { LOCAL_STORAGE_KEYS } from 'dashboard/constants/localStorage';
 import countriesList from 'shared/constants/countries.js';
+
+const RINGTONE_URL = '/audio/dashboard/ringtone.mp3';
 
 const route = useRoute();
 const router = useRouter();
@@ -334,22 +335,13 @@ const ringingInboundCalls = computed(() =>
       )
 );
 
-const isRingtoneBlocked = ref(false);
-
 // Read once per mount rather than watched: the browser only changes it through
 // a prompt we raise ourselves, and a denial is final until the agent clears it
-// from the site settings — so an agent who said no must not be offered the
-// button again, it would do nothing.
+// from the site settings — so 'default' is the only state worth offering a
+// button for, and an agent who said no is never asked again.
 const notificationPermission = ref(
   'Notification' in window ? Notification.permission : 'denied'
 );
-
-const playRingtone = () => {
-  isRingtoneBlocked.value = false;
-  startRingtone(() => {
-    isRingtoneBlocked.value = true;
-  });
-};
 
 const enableNotifications = () => {
   requestPushPermissions({
@@ -359,42 +351,38 @@ const enableNotifications = () => {
   });
 };
 
-// Two things stop a ringing call from reaching an agent who is not looking at
-// the tab, and the agent can fix either one from here in a single click. The
-// sound comes first: it is the only signal that says "call" and not "message".
-const ringNotice = computed(() => {
-  if (!ringingInboundCalls.value.length) return null;
-
-  if (isRingtoneBlocked.value) {
-    return {
-      label: t('CONVERSATION.VOICE_WIDGET.SOUND_BLOCKED'),
-      actionLabel: t('CONVERSATION.VOICE_WIDGET.SOUND_BLOCKED_ACTION'),
-      handler: playRingtone,
-    };
-  }
-
-  if (notificationPermission.value === 'default') {
-    return {
-      label: t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS'),
-      actionLabel: t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS_ACTION'),
-      handler: enableNotifications,
-    };
-  }
-
-  return null;
-});
+// The permission lives in a profile setting nobody goes looking for, so ask
+// where it matters: while a call is ringing, from the widget the agent is
+// already looking at.
+const canAskToNotify = computed(
+  () =>
+    notificationPermission.value === 'default' &&
+    ringingInboundCalls.value.length > 0
+);
 
 // Loop the ringtone while an inbound call is unanswered, and stop the moment
 // one is active (we joined) or they all clear. The watcher fires on the boolean
 // transitioning, so a call arriving while another already rings doesn't restart
 // the audio — it stacks into the UI without a fresh ring.
+const ringtone = new Audio(RINGTONE_URL);
+ringtone.loop = true;
+ringtone.volume = 1;
+
+const stopRingtone = () => {
+  ringtone.pause();
+  ringtone.currentTime = 0;
+};
+
 watch(
   () => ringingInboundCalls.value.length > 0,
   shouldRing => {
     if (shouldRing) {
-      playRingtone();
+      // A tab that has had no interaction since it loaded does not start the
+      // audio here: Chrome defers it until the tab is next in the foreground,
+      // without rejecting. Nothing to catch and nothing to report — that case
+      // is what the desktop notification below is for.
+      ringtone.play().catch(() => {});
     } else {
-      isRingtoneBlocked.value = false;
       stopRingtone();
     }
   },
@@ -482,20 +470,18 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <!-- Either the browser muted the ring or desktop alerts are off. Both
-           are one click away, and the click doubles as the user gesture the
-           autoplay policy is waiting for. -->
+      <!-- Desktop alerts are off and this is the one moment the agent cares. -->
       <button
-        v-if="ringNotice"
+        v-if="canAskToNotify"
         type="button"
         class="flex items-center justify-between gap-2 px-3 py-2 text-left rounded-lg bg-n-call-widget shadow-xl outline outline-1 outline-n-call-widget-border backdrop-blur-md"
-        @click="ringNotice.handler()"
+        @click="enableNotifications"
       >
         <span class="text-xs text-n-call-widget-sub-text">
-          {{ ringNotice.label }}
+          {{ $t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS') }}
         </span>
         <span class="text-xs font-medium text-n-blue-10">
-          {{ ringNotice.actionLabel }}
+          {{ $t('CONVERSATION.VOICE_WIDGET.ENABLE_NOTIFICATIONS_ACTION') }}
         </span>
       </button>
 
