@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/voice-silent-failures
 
 jobs:
   build-and-push:
