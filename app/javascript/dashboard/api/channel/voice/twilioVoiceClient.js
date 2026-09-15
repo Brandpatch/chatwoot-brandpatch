@@ -23,6 +23,15 @@ class TwilioVoiceClient extends EventTarget {
   }
 
   async initializeDevice(inboxId) {
+    // Keep the Device that already carries a call on this inbox. Destroying it
+    // drops the leg sitting inside the conference, and since the agent is the
+    // participant that starts the conference, that ends it: the customer then
+    // answers into a room that is gone. A different inbox still rebuilds, the
+    // Device being per inbox.
+    if (this.activeConnection && this.initialized && this.inboxId === inboxId) {
+      return this.device;
+    }
+
     this.destroyDevice();
 
     const response = await VoiceAPI.getToken(inboxId);

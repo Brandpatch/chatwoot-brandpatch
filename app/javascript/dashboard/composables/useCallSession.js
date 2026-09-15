@@ -14,6 +14,7 @@ import {
   handleVoiceCallCreated,
   markCallDismissed,
   markLocalCall,
+  isLocalCall,
   clearLocalCall,
 } from 'dashboard/helper/voice';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
@@ -111,6 +112,19 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
 
   const joinCall = async ({ conversationId, inboxId, callSid }) => {
     if (globalIsJoining.value) return null;
+
+    // One join per call, ever. globalIsJoining only covers an attempt still in
+    // flight, so three firings half a second apart all got through — and each
+    // one dialled a fresh leg whose device initialization destroyed the leg
+    // already inside the conference. The agent is the participant that starts
+    // the conference, so losing their leg ended it, and the customer answered
+    // into a room that no longer existed and heard hold music.
+    //
+    // isLocalCall names the call this tab owns: set before the first await and
+    // cleared by every failure path, so it blocks a duplicate of a join that
+    // worked without blocking a retry of one that did not — which is what the
+    // join button on the card needs.
+    if (isLocalCall(callSid)) return null;
 
     const call = findCall(callSid);
     // Outbound *WhatsApp* calls have no separate join step — the offer was
