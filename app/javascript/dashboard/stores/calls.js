@@ -2,6 +2,7 @@ import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
 import { cleanupWhatsappSession } from 'dashboard/composables/useWhatsappCallSession';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { TERMINAL_STATUSES } from 'dashboard/helper/voice';
+import { isLocalCall, clearLocalCall } from 'dashboard/helper/localCall';
 import { defineStore } from 'pinia';
 
 const teardownByProvider = call => {
@@ -62,10 +63,24 @@ export const useCallsStore = defineStore('calls', {
       });
     },
 
+    // isActive alone misses the call that died mid-join. It is set on the last
+    // line of joinCall, after three awaits (token, joinConference,
+    // joinClientCall), and an outbound call to a number that never connects can
+    // reach its terminal status inside that window — the widget then closes on
+    // the message.updated while the Twilio Device stays connected, leaving the
+    // ringtone playing with no card left to hang up from.
+    //
+    // isLocalCall is set synchronously before those awaits precisely to name
+    // the call this tab owns, so it covers the whole window.
     removeCall(callSid) {
       const callToRemove = this.calls.find(c => c.callSid === callSid);
-      if (callToRemove?.isActive) {
+      if (callToRemove?.isActive || isLocalCall(callSid)) {
         teardownByProvider(callToRemove);
+        // Nothing else releases the sid on this path: joinCall clears it only
+        // when it fails, and endCall only when the agent hangs up. A call that
+        // joined and then died on its own would leave it set, and the next
+        // removeCall for that same sid would tear down whatever came after.
+        clearLocalCall(callSid);
       }
       this.calls = this.calls.filter(c => c.callSid !== callSid);
     },

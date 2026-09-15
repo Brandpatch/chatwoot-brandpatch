@@ -153,11 +153,28 @@ const buildCallActions = ({ callsStore, whatsappSession, t }) => {
         return null;
       }
 
+      // The call can die while we are still getting here — an outbound number
+      // that does not exist fails in well under a second — and the store drops
+      // it the moment that lands. Connecting afterwards puts the agent alone in
+      // a conference nobody else will join, playing the provider's hold music
+      // with no card left to hang up from. Checked after each await because the
+      // teardown that races us runs before the Device exists, so it has nothing
+      // to disconnect and cannot undo this later.
+      if (!findCall(callSid)) {
+        clearLocalCall(callSid);
+        return null;
+      }
+
       const joinResponse = await VoiceAPI.joinConference({
         conversationId,
         inboxId,
         callSid,
       });
+
+      if (!findCall(callSid)) {
+        clearLocalCall(callSid);
+        return null;
+      }
 
       await TwilioVoiceClient.joinClientCall({
         to: joinResponse?.conference_sid,
