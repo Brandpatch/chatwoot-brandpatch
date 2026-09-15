@@ -485,7 +485,7 @@ class ActionCableConnector extends BaseActionCableConnector {
         inboxId: data.inbox_id,
         callDirection: VOICE_CALL_DIRECTION.INBOUND,
         senderId: null,
-        caller: null,
+        caller: data.caller,
       });
     }
   };

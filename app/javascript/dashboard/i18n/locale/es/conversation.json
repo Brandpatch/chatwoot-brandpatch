@@ -381,7 +381,8 @@
       "VIEW_CHAT_HISTORY": "Ver historial de chat",
       "MINIMIZE": "Minimizar",
       "DRAG_TO_MOVE": "Arrastrar para mover",
-      "GO_TO_CONVERSATION": "Ir al hilo de conversación"
+      "GO_TO_CONVERSATION": "Ir al hilo de conversación",
+      "DESKTOP_NOTIFICATION_TITLE": "Llamada entrante de {name}"
     }
   },
   "EMAIL_TRANSCRIPT": {
