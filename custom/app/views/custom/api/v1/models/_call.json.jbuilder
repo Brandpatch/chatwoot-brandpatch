@@ -5,6 +5,7 @@ json.status call.display_status
 json.direction call.direction_label
 json.duration_seconds call.duration_seconds
 json.end_reason call.end_reason
+json.failure_reason call.failure_reason
 json.started_at call.started_at&.to_i
 json.created_at call.created_at.to_i
 json.message_id call.message_id

@@ -11,12 +11,13 @@ module Custom
         # dropping and from the customer hanging up. Whoever writes the terminal
         # status first wins, here as everywhere, so the reason that sticks is
         # the one from the path that actually ended it.
-        def process_status_update(status, duration: nil, timestamp: nil, end_reason: nil)
+        def process_status_update(status, duration: nil, timestamp: nil, end_reason: nil, failure: nil)
           return unless Custom::Call::STATUSES.include?(status)
           return if call.status == status
           return if Custom::Call::TERMINAL_STATUSES.include?(call.status)
 
-          apply_call_updates!(status, duration: duration, timestamp: timestamp, end_reason: end_reason)
+          apply_call_updates!(status, duration: duration, timestamp: timestamp,
+                                      end_reason: end_reason, failure: failure)
           close_open_ring_attempt! if Custom::Call::TERMINAL_STATUSES.include?(status)
           call.conversation.update!(last_activity_at: Time.zone.now)
           call.message&.touch # rubocop:disable Rails/SkipsModelValidations
@@ -32,7 +33,7 @@ module Custom
           Custom::Voice::RingAttemptTracker.close!(call, Custom::CallRingAttempt::CALLER_HANGUP)
         end
 
-        def apply_call_updates!(status, duration:, timestamp:, end_reason:)
+        def apply_call_updates!(status, duration:, timestamp:, end_reason:, failure: nil)
           attrs = { status: status }
           ts = timestamp || now_seconds
 
@@ -41,12 +42,25 @@ module Custom
             attrs[:started_at] = started_at if call.started_at.nil? || started_at < call.started_at
           elsif Custom::Call::TERMINAL_STATUSES.include?(status)
             call.ended_at = ts
+            # Both live in meta, so they are written onto the record before the
+            # hash is read into attrs — assigning after it would be dropped.
+            apply_failure!(failure)
             attrs[:meta] = call.meta
             attrs[:duration_seconds] = resolved_duration(duration, ts)
             attrs[:end_reason] = end_reason if end_reason
           end
 
           call.update!(attrs)
+        end
+
+        # Only the first writer to reach a terminal status gets here, which is
+        # also the one that knows why the call ended — a later writer would only
+        # be guessing from a status it did not cause.
+        def apply_failure!(failure)
+          return if failure.blank?
+
+          call.failure_reason = failure[:reason]
+          call.provider_error_code = failure[:error_code]
         end
 
         def resolved_duration(provided_duration, timestamp)

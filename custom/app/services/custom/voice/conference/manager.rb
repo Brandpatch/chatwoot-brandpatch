@@ -110,8 +110,18 @@ module Custom
           call.reload
           return unless call.terminal?
 
+          # Incoming only. An outbound call sits at 'ringing' with no ring agent
+          # from the moment it is placed until the customer picks up, so without
+          # this filter every agent hanging up on this inbox handed somebody
+          # else's outbound call to a stranger: 491 of 5.704 outbound calls over
+          # 21 days, 478 of them rung to an agent other than the one dialling.
+          # It also dragged them into the inbound lifecycle — 85 ended labelled
+          # no_answer on calls the customer had answered — and doubled the odds
+          # of nobody reaching the conference at all, 11,2% against 3,9%.
+          #
+          # An outbound call already has its agent: whoever placed it.
           Custom::Call
-            .where(inbox_id: call.inbox_id, status: 'ringing', current_ring_agent_id: nil)
+            .where(inbox_id: call.inbox_id, direction: :incoming, status: 'ringing', current_ring_agent_id: nil)
             .where.not(id: call.id)
             .order(created_at: :asc)
             .each { |waiting| assign_waiting_call!(waiting) }

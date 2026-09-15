@@ -6,5 +6,6 @@ module Custom::TriggerScheduledItemsJob
   def perform
     super
     Custom::Sla::TriggerSlasForAccountsJob.perform_later
+    Custom::Voice::ReconcileStuckCallsJob.perform_later
   end
 end

@@ -107,6 +107,13 @@
       "NO_ANSWER": "Sin respuesta",
       "NO_ANSWER_OUTBOUND_LABEL": "Sin respuesta",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "El contacto no ha atendido",
+      "FAILURE_UNREACHABLE_NUMBER": "Este número no existe",
+      "FAILURE_INVALID_NUMBER": "Este número no es válido",
+      "FAILURE_LINE_BUSY": "La línea estaba ocupada",
+      "FAILURE_CALL_BLOCKED": "La llamada fue bloqueada",
+      "FAILURE_DESTINATION_NOT_ALLOWED": "No se permiten llamadas a este destino",
+      "FAILURE_CARRIER_REJECTED": "El operador rechazó la llamada",
+      "FAILURE_UNREACHABLE": "No se pudo conectar la llamada",
       "MISSED_CALL": "Llamada perdida",
       "MISSED_CALL_INBOUND_SUBTEXT": "Ningún agente atendió",
       "MISSED_CALL_DECLINED_BY": "Rechazada por {agentName}",
@@ -374,7 +381,9 @@
       "VIEW_CHAT_HISTORY": "Ver historial de chat",
       "MINIMIZE": "Minimizar",
       "DRAG_TO_MOVE": "Arrastrar para mover",
-      "GO_TO_CONVERSATION": "Ir al hilo de conversación"
+      "GO_TO_CONVERSATION": "Ir al hilo de conversación",
+      "DESKTOP_NOTIFICATION_TITLE": "Llamada entrante de {name}",
+      "DEVICE_ERROR": "Error del teléfono ({code}). Avisá a soporte si se repite."
     }
   },
   "EMAIL_TRANSCRIPT": {

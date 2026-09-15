@@ -39,6 +39,7 @@ instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
   - [Enrutamiento, escalación y cola](#enrutamiento-escalación-y-cola)
   - [Qué llamadas ve cada agente](#qué-llamadas-ve-cada-agente)
   - [Qué cuenta como "atendida"](#qué-cuenta-como-atendida)
+  - [Por qué falló una llamada saliente](#por-qué-falló-una-llamada-saliente)
   - [Aprovisionamiento en Twilio](#aprovisionamiento-en-twilio)
   - [Mapa de archivos (backend)](#mapa-de-archivos-backend-2)
   - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-2)
@@ -558,6 +559,33 @@ de acuerdo:
 helper de JS, el frontend se desalinea en silencio — que es exactamente el bug
 que hacía que la misma llamada saliera "perdida" en los Informes y "Llamada
 finalizada" en la conversación. Al modificar una, revisar la otra.
+
+### Por qué falló una llamada saliente
+
+Twilio manda `ErrorCode` en el webhook de status cuando una llamada no llega a
+conectar. `StatusUpdateService` lo clasifica contra
+`Custom::Call::FAILURE_REASON_BY_CODE` y guarda dos cosas en `calls.meta`: el
+motivo ya traducido (`failure_reason`) y el código crudo
+(`provider_error_code`), para poder diagnosticar un final que nadie anticipó
+sin volver a los logs. Un código que no esté en la tabla cae en `unreachable`.
+
+Se guarda **sólo para salientes**: una entrante que falla lo hizo antes de
+llegar a nosotros y el agente no tiene nada que corregir ahí.
+
+**El orden dentro de `CallStatus::Manager` importa.** `failure_reason` vive en
+`meta`, así que se escribe sobre el registro *antes* de que `attrs[:meta]` lea
+ese hash; asignarlo después se perdería en silencio. Y como todo lo demás en ese
+camino, sólo lo escribe el primer escritor que llega a un estado terminal — que
+es justamente el que sabe por qué terminó.
+
+**`LINE_BUSY` existe pero ningún código lo mapea**: Twilio reporta una línea
+ocupada como estado de la llamada, no como error, así que nunca llega con
+código. El nombre está para el día que eso cambie.
+
+La burbuja muestra el motivo en su subtexto. Cuando no hay motivo, el texto por
+defecto de una saliente fallida dice que la llamada no fue atendida, no que el
+contacto no atendió: eso último era falso para un número inexistente y hacía que
+el agente insistiera contra un número mal cargado.
 
 ### Aprovisionamiento en Twilio
 

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
+import { useI18n } from 'vue-i18n';
 import { useDraggable } from '@vueuse/core';
 import { useCallSession } from 'dashboard/composables/useCallSession';
 import { setWhatsappCallMuted } from 'dashboard/composables/useWhatsappCallSession';
@@ -10,6 +11,8 @@ import { frontendURL, conversationUrl } from 'dashboard/helper/URLHelper';
 import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
+import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
+import { useAlert } from 'dashboard/composables';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import MinimizedCallBubble from 'dashboard/components-next/call/MinimizedCallBubble.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -23,6 +26,7 @@ const RINGTONE_URL = '/audio/dashboard/ringtone.mp3';
 const route = useRoute();
 const router = useRouter();
 const store = useStore();
+const { t } = useI18n();
 
 const {
   activeCall,
@@ -320,13 +324,21 @@ watch(
   { immediate: true }
 );
 
-// Loop the ringtone while an inbound call is unanswered. Stop the moment any
-// call is active (we joined), every inbound call cleared, or the widget tears
-// down. The watcher only fires on the boolean transitioning, so additional
-// ringing calls arriving while one is already ringing don't restart the audio
-// — they silently stack into the UI without producing a fresh ring.
-// Browser autoplay may reject the first play() if the tab has no prior
-// user gesture; that's fine — the visual widget still surfaces the call.
+// Inbound calls ringing right now that the agent could still take. An agent
+// already on a call is at their desk and does not need to be chased, so a
+// second call stacks into the widget without ringing or notifying.
+const ringingInboundCalls = computed(() =>
+  hasActiveCall.value
+    ? []
+    : incomingCalls.value.filter(
+        call => call.callDirection !== VOICE_CALL_DIRECTION.OUTBOUND
+      )
+);
+
+// Loop the ringtone while an inbound call is unanswered, and stop the moment
+// one is active (we joined) or they all clear. The watcher fires on the boolean
+// transitioning, so a call arriving while another already rings doesn't restart
+// the audio — it stacks into the UI without a fresh ring.
 const ringtone = new Audio(RINGTONE_URL);
 ringtone.loop = true;
 ringtone.volume = 1;
@@ -336,16 +348,14 @@ const stopRingtone = () => {
   ringtone.currentTime = 0;
 };
 
-const ringingInbound = computed(() =>
-  incomingCalls.value.some(
-    call => call.callDirection !== VOICE_CALL_DIRECTION.OUTBOUND
-  )
-);
-
 watch(
-  () => ringingInbound.value && !hasActiveCall.value,
+  () => ringingInboundCalls.value.length > 0,
   shouldRing => {
     if (shouldRing) {
+      // A tab that has had no interaction since it loaded does not start the
+      // audio here: Chrome defers it until the tab is next in the foreground,
+      // without rejecting. Nothing to catch and nothing to report — that case
+      // is what the desktop notification below is for.
       ringtone.play().catch(() => {});
     } else {
       stopRingtone();
@@ -354,7 +364,48 @@ watch(
   { immediate: true }
 );
 
-onBeforeUnmount(stopRingtone);
+// The desktop banner is the only thing that reaches an agent who is in another
+// application: there the ringtone plays into a window they cannot see, and
+// Chatwoot's own push says a conversation was created, which reads as a chat.
+watch(
+  ringingInboundCalls,
+  calls =>
+    syncIncomingCallNotifications(
+      calls.map(call => {
+        const { contactName, phoneNumber, inboxName } = getCallInfo(call);
+        return {
+          callSid: call.callSid,
+          title: t('CONVERSATION.VOICE_WIDGET.DESKTOP_NOTIFICATION_TITLE', {
+            name: contactName,
+          }),
+          body: [phoneNumber, inboxName].filter(Boolean).join(' \u00b7 '),
+        };
+      })
+    ),
+  { immediate: true }
+);
+
+// Surfaced here rather than where the client lives, because only a component
+// has a translator. The widget is mounted whenever there is a call, which is
+// exactly when a Device error is worth showing.
+const handleDeviceError = event => {
+  const { code } = event.detail || {};
+  useAlert(
+    code
+      ? t('CONVERSATION.VOICE_WIDGET.DEVICE_ERROR', { code })
+      : t('CONTACT_PANEL.CALL_FAILED')
+  );
+};
+
+onMounted(() =>
+  TwilioVoiceClient.addEventListener('device:error', handleDeviceError)
+);
+
+onBeforeUnmount(() => {
+  TwilioVoiceClient.removeEventListener('device:error', handleDeviceError);
+  stopRingtone();
+  syncIncomingCallNotifications([]);
+});
 </script>
 
 <template>
@@ -419,7 +470,7 @@ onBeforeUnmount(stopRingtone);
         :state="stackedCardState(call)"
         :call-info="getCallInfo(call)"
         @accept="handleJoinCall(call)"
-        @reject="rejectIncomingCall(call.callSid)"
+        @reject="rejectIncomingCall(call)"
         @go-to-conversation="goToConversation(call)"
       />
 
@@ -433,7 +484,7 @@ onBeforeUnmount(stopRingtone);
         :is-muted="isMuted"
         :show-mute="hasActiveCall"
         @accept="handleJoinCall(primaryIncomingCall)"
-        @reject="rejectIncomingCall(primaryIncomingCall?.callSid)"
+        @reject="rejectIncomingCall(primaryIncomingCall)"
         @end="handleEndCall"
         @toggle-mute="toggleMute"
         @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"

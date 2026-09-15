@@ -117,6 +117,13 @@
       "NO_ANSWER": "No answer",
       "NO_ANSWER_OUTBOUND_LABEL": "No answer",
       "NO_ANSWER_OUTBOUND_SUBTEXT": "Contact didn't pick up",
+      "FAILURE_UNREACHABLE_NUMBER": "This number doesn't exist",
+      "FAILURE_INVALID_NUMBER": "This number isn't valid",
+      "FAILURE_LINE_BUSY": "The line was busy",
+      "FAILURE_CALL_BLOCKED": "The call was blocked",
+      "FAILURE_DESTINATION_NOT_ALLOWED": "Calls to this destination aren't allowed",
+      "FAILURE_CARRIER_REJECTED": "The carrier rejected the call",
+      "FAILURE_UNREACHABLE": "The call couldn't be connected",
       "MISSED_CALL": "Missed call",
       "MISSED_CALL_INBOUND_SUBTEXT": "No agent picked up",
       "MISSED_CALL_DECLINED_BY": "Declined by {agentName}",
@@ -414,7 +421,9 @@
       "VIEW_CHAT_HISTORY": "View chat history",
       "MINIMIZE": "Minimize",
       "DRAG_TO_MOVE": "Drag to move",
-      "GO_TO_CONVERSATION": "Go to conversation thread"
+      "GO_TO_CONVERSATION": "Go to conversation thread",
+      "DESKTOP_NOTIFICATION_TITLE": "Incoming call from {name}",
+      "DEVICE_ERROR": "Phone error ({code}). Tell support if it keeps happening."
     }
   },
   "EMAIL_TRANSCRIPT": {

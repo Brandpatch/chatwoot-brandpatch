@@ -37,7 +37,10 @@ module Custom
           call
         end
 
+        # The timeout goes first: it is the only thing that ever expires this
+        # call, and it must be armed even if the sweep below fails.
         schedule_ring_timeout!(call)
+        end_superseded_calls!(call)
         call
       rescue ActiveRecord::RecordNotUnique
         find_existing_call || raise
@@ -136,6 +139,21 @@ module Custom
         return unless conversation.last_activity_at > ASSIGNEE_PREFERENCE_WINDOW.ago
 
         conversation.assignee_id
+      end
+
+      # The customer is on the new line, so an earlier call of theirs still open
+      # on this inbox is one they abandoned — keeping it offerable is what puts
+      # a second agent in an empty room. See EndSupersededCallJob.
+      #
+      # Incoming only: an agent dialling this customer while they call in is two
+      # real calls, and neither supersedes the other.
+      def end_superseded_calls!(call)
+        Custom::Call.active
+                    .incoming
+                    .where(account_id: account.id, inbox_id: inbox.id, contact_id: call.contact_id)
+                    .where.not(id: call.id)
+                    .pluck(:id)
+                    .each { |id| Custom::Voice::EndSupersededCallJob.perform_later(id) }
       end
 
       # Always arm the timeout job, even with no agent to ring: the caller waits
