@@ -36,7 +36,7 @@ module Custom::Conversations::PermissionFilterService
     elsif permissions.include?('conversation_participating_manage')
       brandpatch_filter_participating_and_mine
     else
-      Conversation.none
+      ::Conversation.none
     end
   end
 
