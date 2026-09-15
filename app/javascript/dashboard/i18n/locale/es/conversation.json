@@ -382,7 +382,8 @@
       "MINIMIZE": "Minimizar",
       "DRAG_TO_MOVE": "Arrastrar para mover",
       "GO_TO_CONVERSATION": "Ir al hilo de conversación",
-      "DESKTOP_NOTIFICATION_TITLE": "Llamada entrante de {name}"
+      "DESKTOP_NOTIFICATION_TITLE": "Llamada entrante de {name}",
+      "DEVICE_ERROR": "Error del teléfono ({code}). Avisá a soporte si se repite."
     }
   },
   "EMAIL_TRANSCRIPT": {

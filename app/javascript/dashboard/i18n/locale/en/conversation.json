@@ -422,7 +422,8 @@
       "MINIMIZE": "Minimize",
       "DRAG_TO_MOVE": "Drag to move",
       "GO_TO_CONVERSATION": "Go to conversation thread",
-      "DESKTOP_NOTIFICATION_TITLE": "Incoming call from {name}"
+      "DESKTOP_NOTIFICATION_TITLE": "Incoming call from {name}",
+      "DEVICE_ERROR": "Phone error ({code}). Tell support if it keeps happening."
     }
   },
   "EMAIL_TRANSCRIPT": {

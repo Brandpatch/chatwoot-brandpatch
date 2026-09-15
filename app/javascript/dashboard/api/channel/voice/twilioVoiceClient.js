@@ -3,6 +3,16 @@ import VoiceAPI from './voiceAPIClient';
 
 const createCallDisconnectedEvent = () => new CustomEvent('call:disconnected');
 
+// The phone itself failing was the one thing nobody was told about: nothing
+// listened for either Device error, so a Device that cannot reach Twilio dials
+// nothing and the agent is left pressing buttons on a call they were never in.
+// Carries the provider's code, because there is no server-side trace of any of
+// this and the agent quoting it back is all we get.
+const createDeviceErrorEvent = (error, phase) =>
+  new CustomEvent('device:error', {
+    detail: { code: error?.code ?? null, message: error?.message ?? '', phase },
+  });
+
 class TwilioVoiceClient extends EventTarget {
   constructor() {
     super();
@@ -32,6 +42,14 @@ class TwilioVoiceClient extends EventTarget {
     });
 
     this.device.on('disconnect', this.onDisconnect);
+
+    this.device.on('error', error => {
+      this.dispatchEvent(createDeviceErrorEvent(error, 'device'));
+    });
+
+    this.device.on('registrationFailed', error => {
+      this.dispatchEvent(createDeviceErrorEvent(error, 'registration'));
+    });
 
     this.device.on('tokenWillExpire', async () => {
       const r = await VoiceAPI.getToken(this.inboxId);
