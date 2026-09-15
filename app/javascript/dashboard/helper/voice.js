@@ -33,15 +33,15 @@ export const markCallDismissed = callSid => {
 // activeCallId — so the account-wide voice_call.accepted broadcast (which can
 // arrive before the join promise resolves) doesn't mistake this tab's own
 // call for a sibling tab's and tear it down mid-join.
-let localCallSid = null;
-export const markLocalCall = callSid => {
-  localCallSid = callSid || null;
-};
-export const isLocalCall = callSid =>
-  !!callSid && localCallSid != null && callSid === localCallSid;
-export const clearLocalCall = callSid => {
-  if (localCallSid === callSid) localCallSid = null;
-};
+//
+// Re-exported from helper/localCall so existing importers keep their path: the
+// state itself lives there because the calls store needs it too, and this
+// module already imports the store.
+export {
+  markLocalCall,
+  isLocalCall,
+  clearLocalCall,
+} from 'dashboard/helper/localCall';
 
 export const isInbound = direction => direction === 'inbound';
 
