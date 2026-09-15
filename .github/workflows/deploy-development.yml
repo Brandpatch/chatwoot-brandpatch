@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/voice-outbound-lifecycle
 
 jobs:
   build-and-push:
