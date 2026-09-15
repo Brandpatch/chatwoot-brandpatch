@@ -16,12 +16,54 @@ module Custom
     # record a different answer for each agent.
     AGENT_HANGUP = 'agent_hangup'
     CALLER_HANGUP = 'caller_hangup'
+
+    # Why an outbound call never connected, as far as the agent needs to care.
+    #
+    # Only the endings that change what they do next earn a name: fix the
+    # number, try later, or ask somebody to look at the account. Twilio has
+    # dozens of codes and translating all of them would be a table nobody reads
+    # and everybody has to maintain, so the rest fall to UNREACHABLE, which at
+    # least does not claim something untrue.
+    INVALID_NUMBER = 'invalid_number'
+    UNREACHABLE_NUMBER = 'unreachable_number'
+    LINE_BUSY = 'line_busy'
+    CALL_BLOCKED = 'call_blocked'
+    DESTINATION_NOT_ALLOWED = 'destination_not_allowed'
+    CARRIER_REJECTED = 'carrier_rejected'
+    UNREACHABLE = 'unreachable'
+
+    # Twilio's own codes, grouped by what the agent should do about them.
+    # Documented at twilio.com/docs/api/errors; the mapping is deliberately
+    # partial, and anything missing lands on UNREACHABLE with the raw code kept
+    # in meta so an unmapped ending can be diagnosed without digging through
+    # logs.
+    FAILURE_REASON_BY_CODE = {
+      # The number does not exist or is not assigned to anyone.
+      '21217' => UNREACHABLE_NUMBER,
+      '21214' => UNREACHABLE_NUMBER,
+      '13224' => UNREACHABLE_NUMBER,
+      # Malformed, or not a number Twilio can dial at all.
+      '21211' => INVALID_NUMBER,
+      '13223' => INVALID_NUMBER,
+      # The carrier or Twilio refused to place it.
+      '13225' => CARRIER_REJECTED,
+      '32009' => CARRIER_REJECTED,
+      # Blocked on purpose, by Twilio or by the recipient.
+      '13226' => CALL_BLOCKED,
+      '21610' => CALL_BLOCKED,
+      # The account cannot call that destination: geo permissions or no funds.
+      '21215' => DESTINATION_NOT_ALLOWED,
+      '20003' => DESTINATION_NOT_ALLOWED
+      # LINE_BUSY has no code here on purpose: Twilio reports a busy line as a
+      # call status, not as an error, so it never arrives with one. The name
+      # exists for the day that changes, or for a provider that does send it.
+    }.freeze
     DISPLAY_DIRECTION = { 'incoming' => 'inbound', 'outgoing' => 'outbound' }.freeze
     DEFAULT_STUN_URL = 'stun:stun.l.google.com:19302'.freeze
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created
+                   :conversation_created, :failure_reason, :provider_error_code
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -135,6 +177,15 @@ module Custom
       Rails.application.routes.url_helpers.rails_blob_url(recording)
     end
 
+    # An unmapped code still gets an answer rather than nothing: UNREACHABLE is
+    # vague but true, and the raw code stays in meta for whoever has to find out
+    # what it was.
+    def self.failure_reason_for(error_code)
+      return if error_code.blank?
+
+      FAILURE_REASON_BY_CODE.fetch(error_code.to_s, UNREACHABLE)
+    end
+
     def push_event_data
       {
         id: id,
@@ -144,6 +195,7 @@ module Custom
         status: display_status,
         duration_seconds: duration_seconds,
         end_reason: end_reason,
+        failure_reason: failure_reason,
         conference_sid: conference_sid,
         accepted_by_agent_id: accepted_by_agent_id,
         accepted_by_agent_name: accepted_by_agent&.available_name,

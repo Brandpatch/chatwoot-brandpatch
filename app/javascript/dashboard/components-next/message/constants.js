@@ -113,6 +113,19 @@ export const VOICE_CALL_END_REASON = {
   CALLER_HANGUP: 'caller_hangup',
 };
 
+// Why an outbound call never connected. Mirrors Custom::Call's constants: the
+// backend classifies the provider's error code and sends a name, so this side
+// only has to find a string for it.
+export const VOICE_CALL_FAILURE_REASON = {
+  INVALID_NUMBER: 'invalid_number',
+  UNREACHABLE_NUMBER: 'unreachable_number',
+  LINE_BUSY: 'line_busy',
+  CALL_BLOCKED: 'call_blocked',
+  DESTINATION_NOT_ALLOWED: 'destination_not_allowed',
+  CARRIER_REJECTED: 'carrier_rejected',
+  UNREACHABLE: 'unreachable',
+};
+
 // The call is over and can be judged. A ringing or in-progress call has not
 // failed to be attended yet.
 export const VOICE_CALL_TERMINAL_STATUSES = [
