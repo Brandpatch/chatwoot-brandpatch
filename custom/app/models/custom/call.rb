@@ -98,6 +98,9 @@ module Custom
     def assign_conversation_to!(user_id)
       return if conversation.assigned_entity.present? && !conversation_created
 
+      # Silently: the call is what the agent has to be told about, and the
+      # assignment alert would announce it as a chat. See Custom::Conversation.
+      conversation.brandpatch_silent_assignment = true
       ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: user_id).perform
     end
 
