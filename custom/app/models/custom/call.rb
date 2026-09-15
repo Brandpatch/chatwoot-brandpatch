@@ -28,7 +28,11 @@ module Custom
 
     belongs_to :account
     belongs_to :inbox
-    belongs_to :conversation
+    # Explicit ::Conversation because this class lives under Custom::, where a
+    # bare Conversation now resolves to the Custom::Conversation prepend module
+    # and Rails refuses it as an association target. Same trap as the other
+    # prepend modules under this namespace.
+    belongs_to :conversation, class_name: '::Conversation'
     belongs_to :contact
     belongs_to :message, class_name: '::Message', optional: true, inverse_of: :custom_call
     belongs_to :accepted_by_agent, class_name: 'User', optional: true
