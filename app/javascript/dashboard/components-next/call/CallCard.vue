@@ -160,9 +160,12 @@ const channelIcon = computed(() => {
             @click="$emit('toggleMute')"
           />
 
-          <!-- Accept call (incoming only) -->
+          <!-- Join the call. Also on an outbound one that has not connected
+               yet: the widget joins those on its own, and when that does not
+               happen the agent had no way in and no way out — the card only
+               ever offered hang up. -->
           <NextButton
-            v-if="isIncoming"
+            v-if="isIncoming || isOutgoing"
             v-tooltip.top="$t('CONVERSATION.VOICE_WIDGET.JOIN_CALL')"
             icon="i-ph-phone-bold"
             teal
