@@ -113,6 +113,7 @@ module Custom
           meta: call.meta.merge('rang_agent_ids' => [agent.id])
         )
         Custom::Voice::RingAttemptTracker.open!(call, agent.id)
+        call.assign_conversation_to!(agent.id)
         call.broadcast_voice_call_event(:ring_reassigned, previous_agent_id: nil)
       end
 
@@ -120,11 +121,9 @@ module Custom
       # who was just chatting with somebody reaches that same somebody instead of
       # whoever the round robin happens to favour.
       #
-      # Only for a conversation that already existed. One this call created has
-      # an owner stamped by Chatwoot's inbox auto-assignment moments earlier,
-      # chosen by its own round robin and meaning nothing here — preferring that
-      # would just be a second, worse round robin. See
-      # Custom::Call#assign_conversation_to!.
+      # Only for a conversation that already existed. In one this call created the
+      # owner is the agent the call is ringing right now, so preferring it would
+      # be circular. See Custom::Call#assign_conversation_to!.
       #
       # A stale thread does not count as context either: an owner from last week
       # is somebody who has long since moved on, and holding the first turn for

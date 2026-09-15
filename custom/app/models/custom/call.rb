@@ -78,12 +78,19 @@ module Custom
     # The conversation of a call belongs to whoever answers it, unless somebody
     # was already working it.
     #
-    # Chatwoot's inbox auto-assignment stamps an owner the moment a conversation
-    # is created, chosen by its own round robin over online agents — which knows
-    # nothing about calls and will happily pick an agent who is on one. For a
-    # conversation this call created, that owner never spoke to anybody and is
-    # noise, so the agent who answers takes it over. A conversation that already
-    # existed has a real owner who was working it, and that one is respected.
+    # For a conversation this call created, the owner follows the call: each ring
+    # turn hands it to the agent whose phone is ringing, and answering leaves it
+    # with whoever picked up. So it always belongs to somebody who was actually
+    # offered the call — and a call nobody answers ends up with the last agent
+    # who let it ring, which is at least a real relationship to explain.
+    #
+    # That is also why Chatwoot's own auto-assignment is skipped for these
+    # conversations (see Custom::Conversation): it stamps an owner on creation by
+    # a round robin that knows nothing about calls, and would pick the very
+    # agents the router just refused to ring.
+    #
+    # A conversation that already existed has a real owner who was working it,
+    # and that one is respected — the ring turn never takes it away.
     def assign_conversation_to!(user_id)
       return if conversation.assigned_entity.present? && !conversation_created
 
