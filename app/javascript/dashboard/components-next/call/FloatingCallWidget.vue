@@ -12,7 +12,6 @@ import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
-import TwilioVoiceClient from 'dashboard/api/channel/voice/twilioVoiceClient';
 import { useAlert } from 'dashboard/composables';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import MinimizedCallBubble from 'dashboard/components-next/call/MinimizedCallBubble.vue';
