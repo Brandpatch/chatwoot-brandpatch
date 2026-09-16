@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/twilio-media-download-voice-credentials
 
 jobs:
   build-and-push:
