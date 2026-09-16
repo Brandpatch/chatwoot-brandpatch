@@ -5,6 +5,7 @@ class Custom::Sla::EvaluateAppliedSlaService
 
   def perform
     return unless conversation.sla_applicable?
+    return handle_unmeasurable if applied_sla.brandpatch_clock_started_at.nil?
 
     check_frt
     check_nrt
@@ -18,6 +19,24 @@ class Custom::Sla::EvaluateAppliedSlaService
   private
 
   delegate :conversation, :sla_policy, to: :applied_sla
+
+  # Nothing was written, so there is nothing to measure. Returning early is
+  # also what keeps a nil deadline out of within_threshold?, which would raise
+  # on the comparison: the three clocks can only be nil for want of a start.
+  #
+  # Once the conversation is resolved no text is coming, and the row cannot
+  # stay behind: the report's denominator is every applied_sla in the range
+  # whatever its status, so an untouched one counts as compliant — 2.042 of the
+  # 2.253 call-only conversations in production are sitting on a 'hit' today
+  # for exactly that reason. Dropping the row takes the conversation out of
+  # both sides of the ratio, which is what "calls do not count" has to mean.
+  #
+  # The policy stays on the conversation because Chatwoot forbids removing it
+  # (Enterprise::Concerns::Conversation#validate_sla_policy). Custom::Conversation
+  # puts the row back if the customer writes later and reopens it.
+  def handle_unmeasurable
+    applied_sla.destroy! if conversation.resolved?
+  end
 
   def check_frt
     return if sla_policy.first_response_time_threshold.blank?
