@@ -41,6 +41,30 @@ module Custom
 
     private
 
+    # A conversation resolved without a single written message left the SLA and
+    # its applied_sla row was dropped — see Custom::Sla::EvaluateAppliedSlaService.
+    # If the customer writes afterwards the conversation reopens and there is
+    # something to measure again, but nothing would put the row back: the policy
+    # is still on the conversation, so add_sla declines to act, and the row is
+    # only ever created when sla_policy_id changes. 44 of 2.298 in production.
+    #
+    # After super, never before: everything Chatwoot hangs off this callback —
+    # the status change events, the websocket push, the automation rules — would
+    # be lost if an addition of ours raised first, and restoring the row is the
+    # least important thing happening here.
+    def execute_after_update_commit_callbacks
+      super
+      brandpatch_restore_applied_sla
+    end
+
+    def brandpatch_restore_applied_sla
+      return unless saved_change_to_status? && status == 'open'
+      return if sla_policy_id.blank?
+      return if applied_sla.present?
+
+      create_applied_sla!(sla_policy_id: sla_policy_id)
+    end
+
     def should_run_auto_assignment?
       return false if brandpatch_skip_auto_assignment
 
