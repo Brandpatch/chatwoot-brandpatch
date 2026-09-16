@@ -22,6 +22,11 @@ json.inbox do
   json.name call.inbox.name
   json.channel_type call.inbox.channel_type
   json.medium call.inbox.channel.try(:medium)
+  # The call-analysis pipeline keys its "sistema" off the inbox's own number,
+  # and the name will not do: the inbox Chatwoot calls "PARIPE/CHISPITA
+  # Notificaciones" is BATCHES4YOU over there. try() because an inbox reached
+  # through a messaging service SID has no number of its own.
+  json.phone_number call.inbox.channel.try(:phone_number)
 end
 
 if call.accepted_by_agent
