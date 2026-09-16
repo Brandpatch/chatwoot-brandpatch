@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - fix/sla-exclude-calls
 
 jobs:
   build-and-push:
