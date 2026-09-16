@@ -47,9 +47,14 @@ module Custom
     # something to measure again, but nothing would put the row back: the policy
     # is still on the conversation, so add_sla declines to act, and the row is
     # only ever created when sla_policy_id changes. 44 of 2.298 in production.
+    #
+    # After super, never before: everything Chatwoot hangs off this callback —
+    # the status change events, the websocket push, the automation rules — would
+    # be lost if an addition of ours raised first, and restoring the row is the
+    # least important thing happening here.
     def execute_after_update_commit_callbacks
-      brandpatch_restore_applied_sla
       super
+      brandpatch_restore_applied_sla
     end
 
     def brandpatch_restore_applied_sla
