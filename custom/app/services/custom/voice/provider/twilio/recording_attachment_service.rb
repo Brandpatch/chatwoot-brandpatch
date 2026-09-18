@@ -8,6 +8,13 @@ module Custom
           DEFAULT_FILENAME_EXTENSION = 'wav'.freeze
           ALLOWED_CONTENT_TYPE_PREFIXES = %w[audio/].freeze
           TWILIO_API_HOST_PATTERN = /\Aapi(?:\.[a-z0-9-]+){0,2}\.twilio\.com\z/i
+          # Without this SafeFetch falls back to MAXIMUM_FILE_UPLOAD_SIZE, which
+          # is the limit on what a person may upload and is 40 MB here. A Twilio
+          # conference recording is mono 8 kHz 16-bit WAV, 16 kB/s, so that
+          # ceiling cuts the download at 43.7 minutes. Measured in production:
+          # every call longer than that lost its recording and no shorter one
+          # did, and the jobs died in Sidekiq where nobody was looking.
+          MAX_RECORDING_BYTES = 200.megabytes
 
           pattr_initialize [:call!, :recording_sid!, :recording_url!, { recording_duration: nil }]
 
@@ -18,7 +25,8 @@ module Custom
             SafeFetch.fetch(
               recording_url,
               http_basic_authentication: (twilio_api_url? ? [account_sid, auth_token] : nil),
-              allowed_content_type_prefixes: ALLOWED_CONTENT_TYPE_PREFIXES
+              allowed_content_type_prefixes: ALLOWED_CONTENT_TYPE_PREFIXES,
+              max_bytes: MAX_RECORDING_BYTES
             ) do |result|
               persist_recording!(result)
             end
