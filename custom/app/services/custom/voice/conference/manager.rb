@@ -39,7 +39,22 @@ module Custom
           return unless user_id
 
           claim_for_user!(user_id)
-          status_manager.process_status_update('in_progress', timestamp: now)
+          # Inbound only. There the caller is already in the conference, so the
+          # agent arriving is the moment the two are together. An outbound call
+          # is the other way round: the agent's browser joins while the
+          # customer's phone is still ringing, and calling that 'in progress'
+          # credits a conversation that may never happen. The agent then hangs
+          # up on the ringing, finds the call already in_progress and writes
+          # 'completed' over it with a duration counted from their own join;
+          # Twilio's 'canceled' for the customer leg arrives afterwards and is
+          # ignored, because the first terminal status wins.
+          #
+          # Measured in production: 331 outbound calls the customer never
+          # picked up were stored as answered, carrying 314 minutes of talk
+          # time nobody spoke into the per-agent report. What actually connects
+          # an outbound call is the customer answering, and their leg's status
+          # callback already reports that as 'answered'.
+          status_manager.process_status_update('in_progress', timestamp: now) if call.incoming?
           return unless call.accepted_by_agent_id == user_id && mark_accepted_broadcast!
 
           call.broadcast_voice_call_event(:accepted, accepted_by_agent_id: call.accepted_by_agent_id)
