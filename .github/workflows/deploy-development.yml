@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/incoming-call-answered-without-caller
 
 jobs:
   build-and-push:
