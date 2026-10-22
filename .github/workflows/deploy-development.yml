@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/pause-inbound-calls
 
 jobs:
   build-and-push:
