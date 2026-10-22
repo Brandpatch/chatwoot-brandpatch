@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAlert } from 'dashboard/composables';
-import { dynamicTime } from 'shared/helpers/timeHelper';
+import { format, fromUnixTime, isToday } from 'date-fns';
 import VoiceAPI from 'dashboard/api/channel/voice/voiceAPIClient';
 import SectionLayout from './SectionLayout.vue';
 import Switch from 'next/switch/Switch.vue';
@@ -22,9 +22,18 @@ const applyState = state => {
 
 // Shown so a pause nobody lifted is visible. One switch is much easier to
 // forget than the 544 unassignments this replaces.
-const pausedSince = computed(() =>
-  pausedAt.value ? dynamicTime(pausedAt.value) : ''
-);
+//
+// Numeric on purpose. date-fns is never given a locale anywhere in this app, so
+// anything with words in it — "3 hours ago", "Oct" — comes back in English and
+// lands inside a translated sentence. Digits read the same in every language.
+// The date joins in once the pause is no longer from today, which is the case
+// worth noticing at a glance.
+const pausedSince = computed(() => {
+  if (!pausedAt.value) return '';
+
+  const when = fromUnixTime(pausedAt.value);
+  return format(when, isToday(when) ? 'HH:mm' : 'd/M HH:mm');
+});
 
 onMounted(async () => {
   try {

@@ -107,7 +107,7 @@
       "INBOUND_CALL_PAUSE": {
         "TITLE": "Pause incoming calls",
         "NOTE": "Stops incoming calls from ringing agents across the whole account, without changing anyone's availability or inbox access. Calls still arrive and land in the inbox unassigned, so the team can see them and reply by message; unanswered, they end as unattended calls of the inbox and count against no agent. Outgoing calls are unaffected.",
-        "PAUSED_SINCE": "Paused {time}",
+        "PAUSED_SINCE": "Paused since {time}",
         "API": {
           "PAUSED": "Incoming calls paused",
           "RESUMED": "Incoming calls resumed",
