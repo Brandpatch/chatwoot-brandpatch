@@ -17,7 +17,7 @@ module Custom
       # The account-wide pause is answered here rather than in eligible_agents
       # because this is the one door all three callers come through — the first
       # ring, an escalation, and the waiting queue — so a paused account cannot
-      # be reached by adding a fourth. See Custom::Account.
+      # be reached by adding a fourth. See Custom::Concerns::Account.
       #
       # Returning nobody is the whole feature: the call is already built and its
       # conversation already exists by this point, so it stays in the inbox

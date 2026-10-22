@@ -4,9 +4,9 @@ module Custom
   module Api
     module V1
       module Accounts
-        # The account-wide switch that stops inbound calls reaching agents while
-        # leaving messaging untouched. See Custom::Account for why the pause is
-        # not expressed through availability or inbox membership.
+        # The account-wide switch that stops inbound calls reaching agents
+        # while leaving messaging untouched. See Custom::Concerns::Account for
+        # why the pause is not expressed through availability or membership.
         #
         # Administrators only. It silences the phone for a whole business, and
         # the people who asked for it are the supervisors running the meeting.
