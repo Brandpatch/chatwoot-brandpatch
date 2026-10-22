@@ -602,6 +602,8 @@ Rails.application.routes.draw do
               end
               # Singular: the agent's own figures, with no id to address anyone else's.
               resource :my_call_stats, only: [:show], controller: 'my_call_stats'
+              # Singular: one inbound-call switch per account.
+              resource :inbound_call_pause, only: %i[show update], controller: 'inbound_call_pause'
               resources :inboxes, only: [] do
                 resource :conference, only: %i[create destroy], controller: 'conference' do
                   get :token, on: :member
