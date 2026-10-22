@@ -104,6 +104,17 @@
           "ERROR": "Failed to update audio transcription setting"
         }
       },
+      "INBOUND_CALL_PAUSE": {
+        "TITLE": "Pausar las llamadas entrantes",
+        "NOTE": "Deja de repicarles las llamadas entrantes a los agentes en toda la cuenta, sin tocar la disponibilidad de nadie ni su acceso a las bandejas. Las llamadas igual entran y quedan sin asignar, así el equipo las ve y puede responder por mensaje; si nadie las atiende, terminan como llamadas no atendidas de la bandeja y no le cuentan a ningún agente. Las llamadas salientes no se ven afectadas.",
+        "PAUSED_SINCE": "En pausa {time}",
+        "API": {
+          "PAUSED": "Llamadas entrantes en pausa",
+          "RESUMED": "Llamadas entrantes reanudadas",
+          "ERROR": "No se pudo cambiar el ajuste de llamadas entrantes",
+          "LOAD_ERROR": "No se pudo leer si las llamadas entrantes están en pausa"
+        }
+      },
       "AUTO_RESOLVE_DURATION": {
         "LABEL": "Inactivity duration for resolution",
         "HELP": "Duration after a conversation should auto resolve if there is no activity",

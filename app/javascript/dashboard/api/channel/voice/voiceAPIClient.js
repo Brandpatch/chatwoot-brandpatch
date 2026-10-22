@@ -39,6 +39,18 @@ class VoiceAPI extends ApiClient {
       .get(`${this.baseUrl()}/inboxes/${inboxId}/conference/token`)
       .then(r => r.data);
   }
+
+  // The account-wide switch that stops inbound calls reaching agents. Singular
+  // path: there is one per account, so there is no id in it.
+  getInboundCallPause() {
+    return axios.get(`${this.baseUrl()}/inbound_call_pause`).then(r => r.data);
+  }
+
+  setInboundCallPause(paused) {
+    return axios
+      .patch(`${this.baseUrl()}/inbound_call_pause`, { paused })
+      .then(r => r.data);
+  }
 }
 
 export default new VoiceAPI();
