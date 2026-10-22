@@ -13,7 +13,7 @@ module Custom
           when 'start'
             mark_ringing!
           when 'join'
-            join_agent! if agent_participant?
+            agent_participant? ? join_agent! : caller_presence.record_join!
           when 'leave'
             handle_leave!
             assign_waiting_calls! if agent_participant?
@@ -28,6 +28,31 @@ module Custom
           @status_manager ||= Custom::Voice::CallStatus::Manager.new(call: call)
         end
 
+        def caller_presence
+          @caller_presence ||= Custom::Voice::CallerPresence.new(call: call)
+        end
+
+        # The caller gave up before the agent got in, so nobody is waiting on the
+        # other side and nobody answered. no_answer is terminal and unanswered,
+        # which is exactly what the inbox's unattended column counts, and the
+        # open ring turn closes as caller_hangup — not one of MISSED_OUTCOMES —
+        # so the agent is credited with neither an answer nor a miss.
+        #
+        # Claiming is skipped entirely rather than undone: accepted_by_agent_id,
+        # the answered turn and the conversation assignment all follow from the
+        # claim, and writing then reverting them would broadcast an accepted
+        # call to the agent's widget on the way past.
+        #
+        # Ending the conference is what the agent actually feels: without it
+        # they sit in an empty room on hold music, which is the ringing the
+        # report described. Their leg is the only one left, so completing the
+        # conference drops them out.
+        def abandon_empty_conference!
+          Rails.logger.info("VOICE_CALLER_ABSENT: call=#{call.id} conference=#{call.conference_sid}")
+          status_manager.process_status_update('no_answer', timestamp: now)
+          Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference
+        end
+
         def mark_ringing!
           return unless call.status == 'ringing'
 
@@ -37,6 +62,7 @@ module Custom
         def join_agent!
           user_id = extract_user_id
           return unless user_id
+          return abandon_empty_conference! if caller_presence.absent?
 
           claim_for_user!(user_id)
           # Inbound only. There the caller is already in the conference, so the
