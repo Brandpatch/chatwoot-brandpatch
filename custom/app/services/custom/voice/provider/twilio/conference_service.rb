@@ -54,6 +54,8 @@ module Custom
           # assigned to somebody who never talked. The conference webhook's own
           # claim path has always checked this; only the click path did not.
           def claim_call!(user)
+            reject_absent_caller! if Custom::Voice::CallerPresence.absent?(call)
+
             call.with_lock do
               raise CustomExceptions::CallAlreadyEnded if call.terminal?
               raise_already_accepted!(call.accepted_by_agent) if claimed_by_other_agent?(user)
@@ -67,6 +69,25 @@ module Custom
             # which would otherwise leave a real answer unrecorded and let the
             # turn fall through to the terminal catch-all.
             Custom::Voice::RingAttemptTracker.record_answer!(call, user.id)
+          end
+
+          # The same case Conference::Manager guards on the webhook side, caught
+          # one step earlier: this click is what dials the agent's leg, so
+          # refusing here keeps them out of the empty room altogether instead of
+          # putting them in and pulling them back out.
+          #
+          # Both paths carry the check because both claim the call on their own.
+          # The last time only one of them did, 13 inbound calls ended up with an
+          # agent on them and 12 of those conversations were assigned to somebody
+          # who never talked — see claim_call! above.
+          #
+          # Raised as CallAlreadyEnded because that is what happened and the
+          # frontend already knows how to show it; inventing a second error for
+          # the same outcome would only mean a second branch in the widget.
+          def reject_absent_caller!
+            Rails.logger.info("VOICE_CALLER_ABSENT_ON_CLICK: call=#{call.id} conference=#{call.conference_sid}")
+            Custom::Voice::CallStatus::Manager.new(call: call).process_status_update('no_answer')
+            raise CustomExceptions::CallAlreadyEnded
           end
 
           def claimed_by_other_agent?(user)

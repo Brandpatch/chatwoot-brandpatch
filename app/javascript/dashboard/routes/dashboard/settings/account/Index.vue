@@ -15,6 +15,7 @@ import AccountId from './components/AccountId.vue';
 import BuildInfo from './components/BuildInfo.vue';
 import AccountDelete from './components/AccountDelete.vue';
 import AudioTranscription from './components/AudioTranscription.vue';
+import InboundCallPause from './components/InboundCallPause.vue';
 import SectionLayout from './components/SectionLayout.vue';
 
 export default {
@@ -25,6 +26,7 @@ export default {
     BuildInfo,
     AccountDelete,
     AudioTranscription,
+    InboundCallPause,
     SectionLayout,
     WithLabel,
     NextInput,
@@ -66,6 +68,14 @@ export default {
       return this.isFeatureEnabledonAccount(
         this.accountId,
         FEATURE_FLAGS.CAPTAIN
+      );
+    },
+    // Only where voice exists at all: an account without it would see a switch
+    // for a channel it does not have.
+    showInboundCallPause() {
+      return this.isFeatureEnabledonAccount(
+        this.accountId,
+        FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH
       );
     },
     languagesSortedByCode() {
@@ -248,6 +258,7 @@ export default {
       <woot-loading-state v-if="uiFlags.isFetchingItem" />
     </div>
     <AudioTranscription v-if="showAudioTranscriptionConfig" />
+    <InboundCallPause v-if="showInboundCallPause" />
     <AccountId />
     <div v-if="!uiFlags.isFetchingItem && isOnChatwootCloud">
       <AccountDelete />

@@ -104,6 +104,17 @@
           "ERROR": "Failed to update audio transcription setting"
         }
       },
+      "INBOUND_CALL_PAUSE": {
+        "TITLE": "Pause incoming calls",
+        "NOTE": "Stops incoming calls from ringing agents across the whole account, without changing anyone's availability or inbox access. Calls still arrive and land in the inbox unassigned, so the team can see them and reply by message; unanswered, they end as unattended calls of the inbox and count against no agent. Outgoing calls are unaffected.",
+        "PAUSED_SINCE": "Paused since {time}",
+        "API": {
+          "PAUSED": "Incoming calls paused",
+          "RESUMED": "Incoming calls resumed",
+          "ERROR": "Could not change the incoming call setting",
+          "LOAD_ERROR": "Could not read whether incoming calls are paused"
+        }
+      },
       "AUTO_RESOLVE_DURATION": {
         "LABEL": "Inactivity duration for resolution",
         "HELP": "Duration after a conversation should auto resolve if there is no activity",

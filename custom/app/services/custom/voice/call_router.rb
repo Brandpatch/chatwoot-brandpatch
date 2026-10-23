@@ -13,7 +13,20 @@ module Custom
       # online, free and a member of the inbox, so a caller never waits on
       # somebody who cannot pick up. Whoever asks for one decides what earns
       # the preference; here it is only honoured when it is also eligible.
+      #
+      # The account-wide pause is answered here rather than in eligible_agents
+      # because this is the one door all three callers come through — the first
+      # ring, an escalation, and the waiting queue — so a paused account cannot
+      # be reached by adding a fourth. See Custom::Concerns::Account.
+      #
+      # Returning nobody is the whole feature: the call is already built and its
+      # conversation already exists by this point, so it stays in the inbox
+      # unassigned for the team to answer by message, waits out max_wait, and
+      # ends as an unattended call of the inbox with no turn opened against any
+      # agent. Nothing below this line needed changing to get that.
       def next_agent
+        return nil if inbox.account.brandpatch_inbound_calls_paused?
+
         agents = eligible_agents
         return nil if agents.empty?
 
