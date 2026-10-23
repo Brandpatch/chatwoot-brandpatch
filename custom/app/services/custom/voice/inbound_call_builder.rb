@@ -107,14 +107,15 @@ module Custom
         call
       end
 
+      # reserve_for! both picks and claims, under a lock no other call for this
+      # account can hold at the same time. Choosing here and writing afterwards
+      # is what let two calls arriving together ring the same person.
       def assign_initial_ring_agent!(call)
-        agent = Custom::Voice::CallRouter.new(inbox: inbox, preferred_agent_id: preferred_agent_id(call)).next_agent
+        agent = Custom::Voice::CallRouter
+                .new(inbox: inbox, preferred_agent_id: preferred_agent_id(call))
+                .reserve_for!(call)
         return unless agent
 
-        call.update!(
-          current_ring_agent_id: agent.id,
-          meta: call.meta.merge('rang_agent_ids' => [agent.id])
-        )
         Custom::Voice::RingAttemptTracker.open!(call, agent.id)
         call.assign_conversation_to!(agent.id)
         call.broadcast_voice_call_event(:ring_reassigned, previous_agent_id: nil)

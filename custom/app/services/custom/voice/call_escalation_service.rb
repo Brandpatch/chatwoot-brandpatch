@@ -10,27 +10,26 @@ module Custom
     class CallEscalationService
       pattr_initialize [:call!, :outcome!]
 
+      # The departing agent is read before reserving, because reserving is what
+      # overwrites it. replace: true because an escalation is precisely the case
+      # that expects to find a turn already there and take it over.
+      #
+      # A reservation that comes back empty means either nobody is free or the
+      # call stopped ringing while we looked; unassign! re-checks the status
+      # itself and does nothing in the second case, same as before.
       def perform
         rang_ids = Array(call.meta['rang_agent_ids']).map(&:to_i)
-        next_agent = Custom::Voice::CallRouter.new(inbox: call.inbox, exclude_agent_ids: rang_ids).next_agent
+        previous_agent_id = call.current_ring_agent_id
+        agent = Custom::Voice::CallRouter
+                .new(inbox: call.inbox, exclude_agent_ids: rang_ids)
+                .reserve_for!(call, replace: true)
 
-        next_agent ? assign_to_agent!(next_agent, rang_ids) : unassign!
+        agent ? assign_to_agent!(agent, previous_agent_id) : unassign!
       end
 
       private
 
-      def assign_to_agent!(agent, rang_ids)
-        previous_agent_id = call.current_ring_agent_id
-
-        call.with_lock do
-          return unless call.status == 'ringing'
-
-          call.update!(
-            current_ring_agent_id: agent.id,
-            meta: call.meta.merge('rang_agent_ids' => rang_ids | [agent.id])
-          )
-        end
-
+      def assign_to_agent!(agent, previous_agent_id)
         Custom::Voice::RingAttemptTracker.close!(call, outcome, agent_id: previous_agent_id)
         Custom::Voice::RingAttemptTracker.open!(call, agent.id)
         # The owner follows the turn, so the conversation always belongs to
