@@ -168,23 +168,15 @@ module Custom
             .each { |waiting| assign_waiting_call!(waiting) }
         end
 
+        # The call lock this used to take guarded the wrong thing: it stopped two
+        # writers touching the same call, while the collision was two calls
+        # taking the same agent. reserve_for! locks the account instead.
         def assign_waiting_call!(waiting)
           rang_ids = Array(waiting.meta['rang_agent_ids']).map(&:to_i)
-          agent = Custom::Voice::CallRouter.new(inbox: waiting.inbox, exclude_agent_ids: rang_ids).next_agent
+          agent = Custom::Voice::CallRouter
+                  .new(inbox: waiting.inbox, exclude_agent_ids: rang_ids)
+                  .reserve_for!(waiting)
           return unless agent
-
-          assigned = false
-          waiting.with_lock do
-            next unless waiting.status == 'ringing' && waiting.current_ring_agent_id.nil?
-
-            waiting.update!(
-              current_ring_agent_id: agent.id,
-              meta: waiting.meta.merge('rang_agent_ids' => rang_ids | [agent.id])
-            )
-            assigned = true
-          end
-
-          return unless assigned
 
           Custom::Voice::RingAttemptTracker.open!(waiting, agent.id)
 
