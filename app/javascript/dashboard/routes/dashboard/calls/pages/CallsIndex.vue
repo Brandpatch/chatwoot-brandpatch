@@ -12,7 +12,9 @@ import { useCallHistoryStore } from 'dashboard/stores/callHistory';
 import { useMyCallStatsStore } from 'dashboard/stores/myCallStats';
 import { subDays, fromUnixTime } from 'date-fns';
 import { getUnixStartOfDay, getUnixEndOfDay } from 'helpers/DateHelper';
+import { generateFileName } from 'dashboard/helper/downloadHelper';
 
+import V4Button from 'dashboard/components-next/button/Button.vue';
 import CallListItem from 'dashboard/components-next/Calls/CallListItem.vue';
 import CallsEmptyState from 'dashboard/components-next/Calls/CallsEmptyState.vue';
 import CallsFilterBar from 'dashboard/components-next/Calls/CallsFilterBar.vue';
@@ -24,6 +26,10 @@ import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
 
 const RESULTS_PER_PAGE = 25;
 const DEFAULT_DAYS_BACK = 6;
+const SECONDS_IN_A_DAY = 86400;
+// Mirrors Custom::Api::V1::Accounts::CallsController::MAX_EXPORT_DAYS, which is
+// where the real limit lives and why it is set where it is.
+const MAX_EXPORT_DAYS = 31;
 
 const { t } = useI18n();
 const route = useRoute();
@@ -119,19 +125,49 @@ const syncFiltersToUrl = () => {
   });
 };
 
+// Shared by the list and the download, so a file cannot cover a different set
+// of calls than the screen it was asked from. Only the page differs: the list
+// takes one, the file takes the lot.
+const filterParams = computed(() => ({
+  since: sinceTs.value,
+  until: untilTs.value,
+  ...(CALL_ACTIVITY_PARAMS[activity.value] || {}),
+  ...(assigneeId.value ? { agent_id: assigneeId.value } : {}),
+  ...(inboxId.value ? { inbox_id: inboxId.value } : {}),
+}));
+
 const fetchCalls = async () => {
   syncFiltersToUrl();
   try {
     await callHistoryStore.fetchCalls({
       page: currentPage.value,
-      since: sinceTs.value,
-      until: untilTs.value,
-      ...(CALL_ACTIVITY_PARAMS[activity.value] || {}),
-      ...(assigneeId.value ? { agent_id: assigneeId.value } : {}),
-      ...(inboxId.value ? { inbox_id: inboxId.value } : {}),
+      ...filterParams.value,
     });
   } catch (error) {
     useAlert(error.message);
+  }
+};
+
+const isDownloading = computed(() => callHistoryStore.uiFlags.isDownloading);
+
+// The same arithmetic the server does, over the same two timestamps, so the
+// button and the endpoint cannot disagree about where the limit falls. Checked
+// here as well so a period that is too wide says so before the request, rather
+// than after the server has spent seconds on it.
+const canDownload = computed(
+  () =>
+    Math.ceil((untilTs.value - sinceTs.value) / SECONDS_IN_A_DAY) <=
+    MAX_EXPORT_DAYS
+);
+
+const downloadCalls = async () => {
+  try {
+    await callHistoryStore.downloadCalls({
+      fileName: generateFileName({ type: 'calls', to: untilTs.value }),
+      ...filterParams.value,
+    });
+  } catch (error) {
+    useAlert(t('CALLS_PAGE.DOWNLOAD_FAILED'));
   }
 };
 
@@ -194,10 +230,31 @@ onMounted(async () => {
     class="flex flex-col w-full h-full overflow-hidden bg-n-surface-1"
   >
     <header class="shrink-0">
-      <div class="w-full px-6 pt-6">
+      <div class="flex items-center justify-between w-full gap-3 px-6 pt-6">
         <h1 class="text-xl font-medium text-n-slate-12">
           {{ t('CALLS_PAGE.HEADER') }}
         </h1>
+        <!--
+          The tooltip rides the wrapper, not the button: a disabled button
+          fires no mouse events, so the one explanation of why it is disabled
+          would never appear on the element that needs it.
+        -->
+        <span
+          v-tooltip.top="
+            canDownload
+              ? null
+              : t('CALLS_PAGE.DOWNLOAD_PERIOD_LIMIT', { days: MAX_EXPORT_DAYS })
+          "
+        >
+          <V4Button
+            :label="t('CALLS_PAGE.DOWNLOAD')"
+            :is-loading="isDownloading"
+            :disabled="isDownloading || !canDownload || !meta.count"
+            icon="i-ph-download-simple"
+            size="sm"
+            @click="downloadCalls"
+          />
+        </span>
       </div>
       <div class="w-full px-6 mt-4">
         <WootDatePicker

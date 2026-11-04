@@ -1,0 +1,60 @@
+<%#
+  One row per call, newest first, which is the order the list shows them in.
+
+  find_each is what keeps this flat in memory: a month is around 56.000 rows
+  and loading them at once, four associations each, is hundreds of megabytes
+  on a box with 3,7 GB. order: :desc walks the primary key backwards, and here
+  that is the same order as created_at — a call's row is written when the call
+  starts, so ids and start times run together.
+%>
+<%#
+  raw on every line: ERB escapes HTML by default, and CSVSafe defuses a
+  dangerous value by prefixing an apostrophe — which came out as &#39; in the
+  cell. Nothing here is HTML, so there is nothing to escape.
+
+  CSVSafe rather than CSV because a contact's name is whatever the contact
+  called themselves: one starting with =, +, - or @ runs as a formula when the
+  file opens in Excel.
+%>
+<%= raw CSVSafe.generate_line [I18n.t('reports.period', since: @period_since, until: @period_until)] -%>
+<%= raw CSVSafe.generate_line [] -%>
+<%= raw CSVSafe.generate_line [
+      I18n.t('reports.voice_calls_csv.started_at'),
+      I18n.t('reports.voice_calls_csv.kind'),
+      I18n.t('reports.voice_calls_csv.direction'),
+      I18n.t('reports.voice_calls_csv.caller_number'),
+      I18n.t('reports.voice_calls_csv.callee_number'),
+      I18n.t('reports.voice_calls_csv.contact_name'),
+      I18n.t('reports.voice_calls_csv.agent_name'),
+      I18n.t('reports.voice_calls_csv.duration_seconds'),
+      I18n.t('reports.voice_calls_csv.inbox_name'),
+      I18n.t('reports.voice_calls_csv.conversation_id')
+    ] -%>
+<% @calls.find_each(batch_size: @batch_size, order: :desc) do |call| %>
+<%#
+  kind is the column the reader actually came for, and it is the one neither
+  status nor direction can answer alone — an inbound call the caller abandoned
+  while it rang is stored as 'completed'. Custom::Call#display_kind decides it,
+  and the dashboard reads the same value, so the file and the screen cannot
+  label the same call differently.
+
+  direction is kept beside it because it is what pivots: kind already tells
+  you a call was missed, direction lets you count missed against received.
+
+  The agent is whoever took the call inbound, and whoever dialled it outbound.
+  Raw seconds rather than the formatted duration on screen, for the same reason
+  every other export here does it: that is what adds up in a spreadsheet.
+%>
+<%= raw CSVSafe.generate_line [
+      local_time(call.created_at).strftime('%Y-%m-%d %H:%M:%S'),
+      I18n.t("reports.voice_calls_csv.kinds.#{call.display_kind}"),
+      I18n.t("reports.voice_calls_csv.directions.#{call.direction}"),
+      call.from_number,
+      call.to_number,
+      call.contact&.name,
+      call.accepted_by_agent&.available_name,
+      call.duration_seconds,
+      call.inbox.name,
+      call.conversation&.display_id
+    ] -%>
+<% end %>

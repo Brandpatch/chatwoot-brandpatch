@@ -248,6 +248,27 @@ en:
       avg_outbound_duration: Avg outgoing call (seconds)
       notes: Private notes
       resolved_conversations: Resolved conversations
+    voice_calls_csv:
+      started_at: Date and time
+      kind: Type
+      direction: Direction
+      caller_number: From
+      callee_number: To
+      contact_name: Contact
+      agent_name: Agent
+      duration_seconds: Duration (seconds)
+      inbox_name: Inbox
+      conversation_id: Conversation
+      kinds:
+        ongoing: Ongoing
+        incoming: Incoming
+        outgoing: Outgoing
+        missed: Missed
+        no_reply: No reply
+        failed: Failed
+      directions:
+        incoming: Incoming
+        outgoing: Outgoing
     inbox_csv:
       inbox_name: Inbox name
       inbox_type: Inbox type
