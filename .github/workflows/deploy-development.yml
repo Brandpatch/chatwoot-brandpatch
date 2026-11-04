@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feat/com-1337-csv-llamadas
 
 jobs:
   build-and-push:
