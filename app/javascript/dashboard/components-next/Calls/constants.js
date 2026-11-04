@@ -18,7 +18,8 @@ export const CALL_KIND = {
 // Filter chips map to the status/direction params supported by CallFinder.
 export const CALL_ACTIVITY_PARAMS = {
   // Missed asks whether anybody attended, not what the provider called it, so
-  // it filters on attendance rather than status — same reason as getCallKind.
+  // it filters on attendance rather than status — the same reason
+  // Custom::Call#display_kind cannot read the status alone.
   missed: {
     attended: false,
     direction: VOICE_CALL_DIRECTION.INBOUND,
