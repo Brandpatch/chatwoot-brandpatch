@@ -4,6 +4,9 @@
     "ALL_CALLS": "All Calls",
     "ALL_CALLS_COUNT": "All Calls ({count})",
     "EMPTY_STATE": "No calls found",
+    "DOWNLOAD": "Download CSV",
+    "DOWNLOAD_FAILED": "Could not download the calls",
+    "DOWNLOAD_PERIOD_LIMIT": "The file covers at most {days} days. Pick a shorter period.",
     "MY_METRICS": {
       "ANSWERED": {
         "LABEL": "Answered",

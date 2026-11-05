@@ -9,6 +9,10 @@ class CallsAPI extends ApiClient {
   get(params = {}) {
     return axios.get(this.url, { params });
   }
+
+  download(params = {}) {
+    return axios.get(`${this.url}/csv`, { params });
+  }
 }
 
 export default new CallsAPI();

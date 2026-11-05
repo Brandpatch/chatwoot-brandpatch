@@ -553,12 +553,30 @@ de acuerdo:
 | Dónde | Quién la usa |
 |---|---|
 | `Custom::Call::ANSWERED_SQL` (Ruby) | Informes, `CallFinder`, métricas propias |
-| `isMissedInboundVoiceCall` en `components-next/message/constants.js` | La burbuja de la conversación y el listado de llamadas |
+| `Custom::Call#answered?` (Ruby) | El gemelo por fila del anterior, para un registro ya cargado |
+| `isMissedInboundVoiceCall` en `components-next/message/constants.js` | La burbuja de la conversación |
 
 **Nada verifica que sigan alineadas.** Si se toca el scope en Ruby sin tocar el
 helper de JS, el frontend se desalinea en silencio — que es exactamente el bug
 que hacía que la misma llamada saliera "perdida" en los Informes y "Llamada
 finalizada" en la conversación. Al modificar una, revisar la otra.
+
+**El listado de llamadas ya no es una de esas superficies.** La etiqueta de
+cada fila (En curso / Entrante / Saliente / Perdida / Sin respuesta / Fallida)
+la decide `Custom::Call#display_kind`, se sirve como `kind` en el payload y el
+front la muestra tal cual: `getCallKind()` ya no existe. Se hizo al construir
+`calls/csv`, porque el archivo necesitaba la misma respuesta que la pantalla y
+una segunda implementación en Ruby habría sido la tercera copia de la regla.
+
+Ni el estado ni la dirección contestan solos esa pregunta: **la llamada perdida
+más común en producción es una entrante que Twilio reporta como `completed`**,
+porque la llamada ocurrió y el cliente cortó mientras sonaba — 549 en 30 días,
+sobre 1.210 perdidas en total. Un CSV que mostrara el estado crudo diría
+justo lo contrario de lo que pasó.
+
+La traducción se verificó contra producción antes de reemplazar nada:
+**55.938 llamadas de 30 días, cero discrepancias** entre `display_kind` y el
+`getCallKind()` que sustituye.
 
 ### Por qué falló una llamada saliente
 
@@ -638,6 +656,7 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/controllers/custom/api/v1/accounts/call_stats_controller.rb` | Métricas agregadas de Informes |
 | `custom/app/controllers/custom/api/v1/accounts/my_call_stats_controller.rb` | Las cifras propias del agente, para su página de Llamadas |
 | `custom/app/views/custom/api/v1/accounts/call_stats/csv.csv.erb` | La exportación a CSV de los Informes |
+| `custom/app/views/custom/api/v1/accounts/calls/csv.csv.erb` | La exportación a CSV del listado, una fila por llamada |
 | `custom/app/controllers/custom/api/v1/accounts/contacts/calls_controller.rb` | Iniciar una llamada saliente a un contacto |
 | `custom/app/finders/custom/call_finder.rb` | Filtrado y paginación del listado |
 | `custom/app/services/custom/voice/inbound_call_builder.rb` | Crea contacto, conversación y llamada para una entrante |
@@ -709,9 +728,25 @@ POST   inboxes/:inbox_id/conference         entrar a la conferencia
 DELETE inboxes/:inbox_id/conference         colgar o declinar
 POST   contacts/:id/call                    iniciar una saliente
 GET    calls                                listado para Informes
+GET    calls/csv                            el mismo listado, una fila por llamada
 GET    call_stats                           métricas agregadas
 GET    call_stats/csv                       las mismas métricas, en CSV
 ```
+
+`calls/csv` exige `since` y `until` y rechaza un período de más de
+`MAX_EXPORT_DAYS` (31) con un 422. No es arbitrario: medido contra producción,
+7 días son 12.100 filas y 2,7 s, 30 días son 55.900 y 10,7 s, y un año es todo
+el historial — unas 100.000 filas y cerca de 20 s. Producción corre **un solo
+proceso de Puma con cinco hilos**, así que una exportación sin tope ocupa un
+quinto de la app durante medio minuto. Más allá de un par de meses lo correcto
+es un job en segundo plano que mande el archivo por correo, como ya hace
+`Account::ContactsExportJob`.
+
+Reusa `CallFinder#filtered`, que es el scope con todos los filtros y **sin**
+paginar. De ahí sale solo: el archivo cubre exactamente las llamadas que la
+pantalla estaba mostrando, incluidas las reglas de visibilidad — un agente
+exporta las suyas y un administrador las de la cuenta, sin que la exportación
+tenga que saber nada de permisos.
 
 El CSV se arma en el servidor y no en el navegador, aunque las filas ya estén
 en el store: los nombres de agente son texto que cargan los usuarios, y uno que

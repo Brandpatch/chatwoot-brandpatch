@@ -13,7 +13,7 @@ import {
   VOICE_CALL_FAILURE_REASON,
 } from 'dashboard/components-next/message/constants';
 import CallStatusBadge from './CallStatusBadge.vue';
-import { CALL_KIND, getCallKind } from './constants';
+import { CALL_KIND } from './constants';
 
 const props = defineProps({
   call: {
@@ -25,7 +25,10 @@ const props = defineProps({
 const { t } = useI18n();
 const route = useRoute();
 
-const kind = computed(() => getCallKind(props.call));
+// Served by the API, not worked out here: the CSV export needs the same answer
+// and a second implementation of "was this missed" is how the list and the file
+// end up disagreeing. See Custom::Call#display_kind.
+const kind = computed(() => props.call.kind);
 
 const contactName = computed(() =>
   (props.call.contact.name || props.call.contact.phoneNumber || '').replace(

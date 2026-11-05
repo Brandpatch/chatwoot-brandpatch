@@ -152,6 +152,44 @@ module Custom
     def display_status = status.to_s.tr('_', '-')
     def direction_label = DISPLAY_DIRECTION[direction]
 
+    # The row-level twin of ANSWERED_SQL, for a record already in memory. Kept
+    # next to it on purpose: a scope filters with the SQL and anything holding
+    # a call asks this, so the two have to say the same thing.
+    def answered? = accepted_by_agent_id.present? && status != 'rejected'
+
+    # What a call is called once it is over, which is not what the provider
+    # called it: 'ongoing', 'incoming', 'outgoing', 'missed', 'no_reply' or
+    # 'failed'. Status and direction each answer half the question and neither
+    # answers it alone — the most common missed call in production is an
+    # inbound one Twilio reports as 'completed', because the call did happen
+    # and the caller simply hung up before anyone picked up. 549 in 30 days.
+    #
+    # This is the single definition. It is served to the dashboard as `kind`
+    # and written into the CSV export, so the list and the file cannot disagree
+    # about whether a call was missed.
+    #
+    # The order matters and each branch is a real case:
+    #
+    # - not terminal yet: it is on the phone right now, whichever way it went.
+    # - failed: the call never connected at all, which is its own answer.
+    # - no_answer: nobody picked up. Inbound that is the agents' miss; outbound
+    #   it is the customer who did not answer, which is not anyone's miss.
+    # - terminal inbound that nobody attended: the caller hung up while it rang
+    #   ('completed') or an agent declined it ('rejected'). Both are missed, and
+    #   this is the branch the raw status gets backwards.
+    # - anything left connected a person to a person.
+    #
+    # Outbound never reaches the missed branch: it always carries the agent who
+    # dialled it.
+    def display_kind
+      return 'ongoing' unless terminal?
+      return 'failed' if status == 'failed'
+      return incoming? ? 'missed' : 'no_reply' if status == 'no_answer'
+      return 'missed' if incoming? && !answered?
+
+      incoming? ? 'incoming' : 'outgoing'
+    end
+
     def broadcast_voice_call_event(event, **extra)
       payload = {
         event: "voice_call.#{event}",

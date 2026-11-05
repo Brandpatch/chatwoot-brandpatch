@@ -3,6 +3,10 @@ json.call_id call.provider_call_id
 json.provider call.provider
 json.status call.display_status
 json.direction call.direction_label
+# What the row is called on screen. status and direction are still sent because
+# the filters and the widget read them, but neither says on its own whether a
+# call was missed — see Custom::Call#display_kind.
+json.kind call.display_kind
 json.duration_seconds call.duration_seconds
 json.end_reason call.end_reason
 json.failure_reason call.failure_reason
