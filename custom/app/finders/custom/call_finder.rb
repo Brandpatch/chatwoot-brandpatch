@@ -11,16 +11,26 @@ module Custom
     end
 
     def perform
-      @calls = @current_account.custom_calls
-      filter_by_visibility
-      filter_by_status
-      filter_by_attendance
-      filter_by_direction
-      filter_by_inbox
-      filter_by_agent
-      filter_by_date_range
+      { calls: paginated_calls, count: filtered.count }
+    end
 
-      { calls: paginated_calls, count: @calls.count }
+    # Every filter the list applies, without the page window. The screen takes
+    # one page of this and the CSV export takes all of it, so a file downloaded
+    # from the list covers exactly the calls the list was showing — including
+    # the visibility rules, which is what keeps an agent's export to their own
+    # calls without the export having to know anything about permissions.
+    def filtered
+      @filtered ||= begin
+        @calls = @current_account.custom_calls
+        filter_by_visibility
+        filter_by_status
+        filter_by_attendance
+        filter_by_direction
+        filter_by_inbox
+        filter_by_agent
+        filter_by_date_range
+        @calls
+      end
     end
 
     private
@@ -112,10 +122,10 @@ module Custom
     end
 
     def paginated_calls
-      @calls.includes(:contact, :conversation, :accepted_by_agent, inbox: :channel)
-            .order(created_at: :desc)
-            .page(@params[:page] || 1)
-            .per(RESULTS_PER_PAGE)
+      filtered.includes(:contact, :conversation, :accepted_by_agent, inbox: :channel)
+              .order(created_at: :desc)
+              .page(@params[:page] || 1)
+              .per(RESULTS_PER_PAGE)
     end
   end
 end

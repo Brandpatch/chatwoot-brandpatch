@@ -596,7 +596,9 @@ Rails.application.routes.draw do
           resources :accounts do
             scope module: :accounts do
               resources :custom_roles, only: [:index, :create, :show, :update, :destroy]
-              resources :calls, only: [:index], controller: 'calls'
+              resources :calls, only: [:index], controller: 'calls' do
+                get :csv, on: :collection
+              end
               resources :call_stats, only: [:index], controller: 'call_stats' do
                 get :csv, on: :collection
               end
