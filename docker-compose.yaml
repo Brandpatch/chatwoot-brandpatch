@@ -82,6 +82,11 @@ services:
       - '127.0.0.1:8080:8080'
     volumes:
       - evolution_instances:/evolution/instances
+      # Parche temporal de Baileys (issue #2858 / PR #2883): confirma los stanzas
+      # <status>. Sin el, WhatsApp corta el stream cada ~50 min y mientras tanto
+      # retiene los mensajes entrantes. Quitar esta linea y la carpeta
+      # evolution-patch cuando el fix llegue a la imagen oficial.
+      - ./evolution-patch/messages-recv.js:/evolution/node_modules/baileys/lib/Socket/messages-recv.js:ro
     env_file: .env
 
 volumes:
