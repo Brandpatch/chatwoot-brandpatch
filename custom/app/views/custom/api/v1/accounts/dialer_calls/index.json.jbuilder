@@ -19,12 +19,17 @@ json.payload do
     # awaiting_agent on a finished call means the customer was never dialled.
     json.phase dialer['phase']
     json.answered_by dialer['answered_by']
+    # A person picked up and talked to the agent: started_at is only stamped when
+    # the customer's leg reports answered, and a machine is told apart by AMD.
+    # Kept here so the consumer does not rebuild the rule from display_kind.
+    json.answered call.started_at.present? && !dialer['answered_by'].to_s.start_with?('machine', 'fax')
     # The dialer's own reason (agent_did_not_join, machine) when it ended the
     # call, otherwise who hung up.
     json.end_reason dialer['end_reason'] || call.end_reason
     json.failure_reason call.failure_reason
     json.agent_id call.accepted_by_agent_id
     json.agent_name call.accepted_by_agent&.available_name
+    json.agent_email call.accepted_by_agent&.email
     json.conversation_id call.conversation.display_id
     json.started_at call.started_at&.to_i
     json.duration_seconds call.duration_seconds

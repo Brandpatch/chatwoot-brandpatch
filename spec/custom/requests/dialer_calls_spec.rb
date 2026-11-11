@@ -127,8 +127,21 @@ RSpec.describe 'Custom dialer calls API', type: :request do
       expect(response.parsed_body['payload'].pluck('call_id')).to eq([call.id])
       expect(response.parsed_body['payload'].first).to include(
         'external_id' => 'lead-1', 'answered_by' => 'machine_start', 'end_reason' => 'machine',
-        'agent_id' => agent.id, 'display_kind' => 'ongoing', 'phase' => 'awaiting_agent'
+        'agent_id' => agent.id, 'agent_email' => agent.email, 'display_kind' => 'ongoing',
+        'phase' => 'awaiting_agent', 'answered' => false
       )
+    end
+
+    it 'reports a person who picked up as answered' do
+      post url, params: body, headers: admin.create_new_auth_token, as: :json
+      call = Custom::Call.find(response.parsed_body['call_id'])
+      call.update!(started_at: Time.zone.now)
+      call.merge_dialer!('answered_by' => 'human')
+
+      get "/custom/api/v1/accounts/#{account.id}/dialer_calls", params: { updated_since: 1.hour.ago.to_i },
+                                                                headers: admin.create_new_auth_token, as: :json
+
+      expect(response.parsed_body['payload'].first['answered']).to be(true)
     end
 
     it 'filters by updated_since' do
