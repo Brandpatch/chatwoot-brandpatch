@@ -16,7 +16,7 @@ module Custom
             agent_participant? ? join_agent! : caller_presence.record_join!
           when 'leave'
             handle_leave!
-            assign_waiting_calls! if agent_participant?
+            agent_left! if agent_participant?
           when 'end'
             finalize!
           end
@@ -81,6 +81,7 @@ module Custom
           # an outbound call is the customer answering, and their leg's status
           # callback already reports that as 'answered'.
           status_manager.process_status_update('in_progress', timestamp: now) if call.incoming?
+          dial_dialer_customer!(user_id)
           return unless call.accepted_by_agent_id == user_id && mark_accepted_broadcast!
 
           call.broadcast_voice_call_event(:accepted, accepted_by_agent_id: call.accepted_by_agent_id)
@@ -131,6 +132,25 @@ module Custom
             reason = agent_participant? ? Custom::Call::AGENT_HANGUP : Custom::Call::CALLER_HANGUP
             status_manager.process_status_update('completed', timestamp: now, end_reason: reason)
           end
+        end
+
+        # An auto-dialer call reaches its customer only now, with the agent in
+        # the room, so nobody ever answers to an empty conference. Only for the
+        # agent it was reserved for; anyone else is turned away before getting
+        # here (VoiceController#find_call_for_agent).
+        def dial_dialer_customer!(user_id)
+          return unless call.dialer? && call.accepted_by_agent_id == user_id
+
+          Custom::Voice::DialerCustomerLeg.new(call: call).dial!
+        end
+
+        # The agent leaving an auto-dialer call takes the customer's leg with it.
+        # Left alone, a customer still ringing would pick up into an empty room
+        # on hold music — the abandoned call the dialer exists to never make —
+        # and one already talking would be left holding.
+        def agent_left!
+          Custom::Voice::Provider::Twilio::ConferenceService.new(call: call).end_conference if call.dialer?
+          assign_waiting_calls!
         end
 
         def finalize!

@@ -5,16 +5,21 @@ module Custom
     class OutboundCallBuilder
       attr_reader :account, :inbox, :user, :contact
 
-      def self.perform!(account:, inbox:, user:, contact:, conversation: nil)
-        new(account: account, inbox: inbox, user: user, contact: contact, conversation: conversation).perform!
+      def self.perform!(**)
+        new(**).perform!
       end
 
-      def initialize(account:, inbox:, user:, contact:, conversation: nil)
+      # dialer is given only by the auto-dialer, which builds the call before
+      # its customer is dialled: the agent joins first, and the dial happens on
+      # their participant-join. Until then there is no Twilio SID, so the call
+      # takes a placeholder for good. See Custom::Call#dialer?.
+      def initialize(account:, inbox:, user:, contact:, conversation: nil, dialer: nil) # rubocop:disable Metrics/ParameterLists
         @account = account
         @inbox = inbox
         @user = user
         @contact = contact
         @existing_conversation = conversation
+        @dialer = dialer
       end
 
       def perform!
@@ -26,7 +31,7 @@ module Custom
         ActiveRecord::Base.transaction do
           contact_inbox = ensure_contact_inbox!
           conversation = @existing_conversation || create_conversation!(contact_inbox)
-          call_sid = initiate_call!
+          call_sid = @dialer ? "dialer-#{SecureRandom.uuid}" : initiate_call!
           if claim_for_caller
             @existing_conversation.lock!
             @existing_conversation.update!(assignee: user)
@@ -74,7 +79,7 @@ module Custom
           direction: :outgoing,
           status: 'ringing',
           provider_call_id: call_sid,
-          meta: { 'initiated_at' => Time.zone.now.to_i }
+          meta: { 'initiated_at' => Time.zone.now.to_i, 'dialer' => @dialer }.compact
         )
         call.update!(conference_sid: call.default_conference_sid)
         call

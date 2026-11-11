@@ -40,6 +40,7 @@ instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
   - [Qué llamadas ve cada agente](#qué-llamadas-ve-cada-agente)
   - [Qué cuenta como "atendida"](#qué-cuenta-como-atendida)
   - [Por qué falló una llamada saliente](#por-qué-falló-una-llamada-saliente)
+  - [Marcador automático (dialer)](#marcador-automático-dialer)
   - [Aprovisionamiento en Twilio](#aprovisionamiento-en-twilio)
   - [Mapa de archivos (backend)](#mapa-de-archivos-backend-2)
   - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-2)
@@ -605,6 +606,78 @@ defecto de una saliente fallida dice que la llamada no fue atendida, no que el
 contacto no atendió: eso último era falso para un número inexistente y hacía que
 el agente insistiera contra un número mal cargado.
 
+### Marcador automático (dialer)
+
+Llamadas salientes a leads que dispara nuestro sistema de leads, sin que el
+agente haga clic. La regla de producto es que **ningún cliente atienda y no
+encuentre a nadie**: el sistema marca sólo cuando hay un agente libre, y al
+cliente se lo llama recién cuando ese agente ya está dentro de la conferencia.
+
+**Flag**: `auto_dialer_brandpatch` (`feature_flags_ext_1`, `enabled: false`),
+aparte de `channel_voice_brandpatch`. Con el flag apagado los endpoints
+devuelven 404 y nada más cambia: todo el resto del flujo se activa sólo para
+llamadas que llevan `meta['dialer']`, y sólo este endpoint las crea.
+
+**Flujo:**
+
+1. `POST .../inboxes/:inbox_id/dialer_calls` (administrador, con el
+   `api_access_token` de un usuario). `CallRouter#reserve_for_dialer!` toma el
+   mismo advisory lock por cuenta que `reserve_for!` y elige agente con las
+   mismas reglas: miembro del inbox, online en `OnlineStatusTracker`, libre en
+   toda la cuenta, round robin. Rechaza con 409 si la cuenta está en pausa
+   (`paused`), si hay una entrante en cola sin agente (`inbound_waiting`: la
+   entrante tiene prioridad) o si no hay nadie (`no_agent_available`).
+2. Dentro de esa misma transacción `DialerCallBuilder` crea contacto,
+   conversación (reusa una abierta del contacto en ese inbox) y la llamada,
+   reutilizando `OutboundCallBuilder` sin marcar. La llamada nace `outgoing`,
+   `ringing`, con `accepted_by_agent` = el agente elegido, así que ese agente
+   queda ocupado desde el commit para las entrantes y para el siguiente pedido
+   del dialer. La nota del lead va como nota privada, escrita por el usuario
+   de la API.
+3. Se avisa al agente por **su propio stream** (`voice_call.dialer_call_assigned`,
+   con la nota; no por el de la cuenta, que lo reciben todos). El widget se une
+   solo, aunque la pestaña esté en segundo plano, por el mismo camino que una
+   saliente manual (`ConferenceController#create` + `device.connect`), y abre la
+   conversación. Si el navegador no puede unirse (sin micrófono, Device que no
+   registra) cuelga por el `DELETE` de siempre y el servidor libera al agente.
+   Con varias pestañas abiertas sólo se une la que toma el Web Lock.
+4. Cuando `Conference::Manager` procesa el *participant-join* del agente,
+   `DialerCustomerLeg#dial!` llama al cliente, una sola vez: la fase pasa de
+   `awaiting_agent` a `dialing` bajo el lock de la fila.
+5. Si el agente no se une en 15 s, `DialerAgentJoinTimeoutJob` termina la
+   llamada como `failed` con `end_reason = agent_did_not_join`. Al cliente nunca
+   se lo llamó.
+
+**El `provider_call_id` es un placeholder** (`dialer-<uuid>`) durante toda la
+vida de la llamada, porque la fila existe antes de que Twilio tenga un SID que
+darle y el frontend identifica la llamada por ese valor de punta a punta. El
+SID real del cliente queda en `meta['dialer']['customer_call_sid']`, y todas
+las URLs de esa pata (TwiML, status, AMD) llevan el placeholder como
+`dialer_sid` en el query string — Twilio firma la URL completa, así que no se
+puede falsificar. `Custom::Call#provider_leg_sid` es lo que hay que usar para
+hablarle a Twilio de esa pata (colgar, reconciliar).
+
+**AMD**: asíncrono (`machine_detection: Enable`, `async_amd`), así que un
+humano pasa con el agente sin esperar. El veredicto llega a
+`/twilio/voice/custom/amd_status/:phone`; si es `machine_*` o `fax` se corta la
+pata del cliente y la conferencia, y la llamada termina por el flujo normal
+con `end_reason = machine` en `meta['dialer']`. Si el agente sale de la
+conferencia, también se corta la pata del cliente: de otro modo uno que todavía
+timbraba atendería a una sala vacía.
+
+**Claves en `meta['dialer']`**: `external_id` (id del lead, único entre llamadas
+activas de la cuenta: un segundo pedido devuelve 409 `already_in_progress`),
+`phase` (`awaiting_agent` → `dialing`; si una llamada terminada sigue en
+`awaiting_agent`, al cliente no se lo llamó), `requested_at`, `metadata`,
+`customer_call_sid`, `dialed_at`, `answered_by` y `end_reason`
+(`agent_did_not_join`, `machine`).
+
+**"Atendida"** sigue la misma regla que una saliente manual, donde el agente
+también entra primero: `started_at` lo pone sólo el `answered` de la pata del
+cliente, y `display_kind` da `no_reply` si no contestó, `failed` si no se llegó a
+marcar y `outgoing` si conectó. Un contestador que atendió también conecta y
+sale `outgoing`, igual que en una manual; `answered_by` es lo que lo distingue.
+
 ### Aprovisionamiento en Twilio
 
 **No hay que configurar nada a mano en la consola de Twilio.** Al crear el
@@ -677,6 +750,11 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/services/custom/voice/provider/twilio/token_service.rb` | Acuña el JWT del SDK; la identidad es `agent-<id>-account-<id>` |
 | `custom/app/services/custom/voice/provider/twilio/recording_attachment_service.rb` | Descarga la grabación y la adjunta |
 | `custom/app/jobs/custom/voice/call_ring_timeout_job.rb` | Vence el turno y dispara la escalación |
+| `custom/app/jobs/custom/voice/dialer_agent_join_timeout_job.rb` | Libera al agente del dialer que no se unió a tiempo |
+| `custom/app/controllers/custom/api/v1/accounts/dialer_calls_controller.rb` | API del dialer: pedir una llamada y leer los resultados |
+| `custom/app/views/custom/api/v1/accounts/dialer_calls/index.json.jbuilder` | Resultados del dialer |
+| `custom/app/services/custom/voice/dialer_call_builder.rb` | Reserva agente y arma contacto, conversación, llamada y nota |
+| `custom/app/services/custom/voice/dialer_customer_leg.rb` | Marca al cliente cuando entra el agente y corta a los contestadores |
 | `custom/app/jobs/custom/voice/provider/twilio/recording_attachment_job.rb` | Adjunta la grabación en segundo plano (cola `low`) |
 | `custom/app/views/custom/api/v1/accounts/calls/index.json.jbuilder` | Listado de llamadas |
 | `custom/app/views/custom/api/v1/models/_call.json.jbuilder` | Serialización de una llamada |
@@ -718,6 +796,7 @@ POST /twilio/voice/custom/call/:phone               TwiML de la llamada
 POST /twilio/voice/custom/status/:phone             cambios de estado
 POST /twilio/voice/custom/conference_status/:phone  eventos de conferencia
 POST /twilio/voice/custom/recording_status/:phone   grabación lista
+POST /twilio/voice/custom/amd_status/:phone         veredicto de AMD (dialer)
 ```
 
 **API del dashboard** (bajo `/api/v1/accounts/:account_id/`):
@@ -759,7 +838,25 @@ Y uno aparte, bajo `/custom/api/v1/accounts/:account_id/`:
 
 ```
 GET    my_call_stats                        las cifras del agente que pregunta
+POST   inboxes/:inbox_id/dialer_calls       pedir una llamada del dialer
+GET    dialer_calls                         resultados del dialer
 ```
+
+Contrato del dialer (administrador; 404 si la cuenta no tiene
+`auto_dialer_brandpatch` o el inbox no es de voz):
+
+- `POST inboxes/:inbox_id/dialer_calls` con `phone_number` (E.164,
+  obligatorio), `external_id` (obligatorio), `name`, `note`, `metadata` (hash).
+  201 `{ call_id, conversation_id, agent_id, external_id }`; 409 `{ error }` con
+  `no_agent_available`, `inbound_waiting`, `paused` o `already_in_progress`;
+  422 si falta o está mal un parámetro.
+- `GET dialer_calls?updated_since=<epoch o ISO 8601>&page=` devuelve 100 por
+  página ordenadas por `updated_at`, con `meta.next_page` y en `payload`:
+  `call_id, external_id, metadata, phone_number, status, display_kind, phase,
+  answered_by, end_reason, failure_reason, agent_id, agent_name,
+  conversation_id, started_at, duration_seconds, created_at, updated_at`.
+  `updated_since` es inclusivo y en segundos, así que una fila puede repetirse
+  entre dos lecturas: deduplicar por `call_id`.
 
 Va en su propio controlador y no como una acción más de `call_stats` a
 propósito: aquél está cerrado entero con `authorize :report, :view?` porque sus

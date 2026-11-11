@@ -68,6 +68,7 @@ class ActionCableConnector extends BaseActionCableConnector {
       'voice_call.ended': this.onVoiceCallEnded,
       'voice_call.ring_reassigned': this.onVoiceCallRingReassigned,
       'voice_call.unassigned': this.onVoiceCallUnassigned,
+      'voice_call.dialer_call_assigned': this.onVoiceCallDialerAssigned,
     };
   }
 
@@ -493,6 +494,27 @@ class ActionCableConnector extends BaseActionCableConnector {
   // eslint-disable-next-line class-methods-use-this
   onVoiceCallUnassigned = data => {
     useCallsStore().removeCall(data.call_id);
+  };
+
+  // The auto-dialer reserved this agent for a lead and waits for them to join
+  // before dialling it. Sent to the agent's own stream, so it is always theirs;
+  // isDialer is what makes FloatingCallWidget join it without a click and even
+  // from a background tab. The call's own message.created may land before or
+  // after this and merges into the same card by sid.
+  // eslint-disable-next-line class-methods-use-this
+  onVoiceCallDialerAssigned = data => {
+    useCallsStore().addCall({
+      callSid: data.call_id,
+      callId: data.id,
+      provider: data.provider,
+      conversationId: data.conversation_id,
+      inboxId: data.inbox_id,
+      callDirection: VOICE_CALL_DIRECTION.OUTBOUND,
+      senderId: data.agent_id,
+      caller: data.caller,
+      note: data.note,
+      isDialer: true,
+    });
   };
 }
 

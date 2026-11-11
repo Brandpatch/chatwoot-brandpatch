@@ -27,7 +27,7 @@ module Custom
       private
 
       def reconcile(call)
-        remote = call.inbox.channel.client.calls(call.provider_call_id).fetch
+        remote = call.inbox.channel.client.calls(call.provider_leg_sid).fetch
         status = Custom::Voice::StatusUpdateService::TWILIO_STATUS_MAP[remote.status]
         return unless status && Custom::Call::TERMINAL_STATUSES.include?(status)
         # Without it there is no honest timestamp to close on, and the manager

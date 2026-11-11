@@ -293,3 +293,9 @@
   display_name: Voice Channel (Brandpatch)
   enabled: false
   column: feature_flags_ext_1
+# [brandpatch] Progressive auto-dialer on top of channel_voice_brandpatch:
+# the lead system asks for calls and agents are connected without clicking.
+- name: auto_dialer_brandpatch
+  display_name: Auto Dialer (Brandpatch)
+  enabled: false
+  column: feature_flags_ext_1

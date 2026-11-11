@@ -187,6 +187,14 @@ const channelIcon = computed(() => {
           />
         </div>
       </div>
+
+      <!-- Context the auto-dialer sent with the lead -->
+      <p
+        v-if="call?.note"
+        class="px-4 mb-0 text-xs text-n-call-widget-sub-text line-clamp-3 tracking-tight"
+      >
+        {{ call.note }}
+      </p>
     </div>
 
     <!-- Footer: go to conversation thread -->

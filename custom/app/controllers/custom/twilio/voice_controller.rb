@@ -67,10 +67,22 @@ module Custom
         head :no_content
       end
 
+      # Async answering machine detection on an auto-dialer customer leg. See
+      # Custom::Voice::DialerCustomerLeg#record_answered_by!.
+      def amd_status
+        call = inbox_calls.find_by!(provider_call_id: twilio_call_sid)
+        Custom::Voice::DialerCustomerLeg.new(call: call).record_answered_by!(params[:AnsweredBy].to_s)
+        head :no_content
+      end
+
       private
 
+      # An auto-dialer customer leg reports under a SID the call row does not
+      # hold — the row was created before the leg existed — so its URLs carry
+      # the row's own placeholder back as dialer_sid (Adapter#initiate_dialer_call).
+      # The query string is part of what Twilio signs, so it cannot be forged.
       def twilio_call_sid
-        params[:CallSid]
+        params[:dialer_sid].presence || params[:CallSid]
       end
 
       def twilio_from
