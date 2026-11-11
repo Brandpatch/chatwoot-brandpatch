@@ -32,7 +32,7 @@ module Custom
         return render xml: reject_twiml if reject_inbound?
 
         call = resolve_call
-        return render xml: hangup_twiml if joining_a_dead_call?(call)
+        return render xml: hangup_twiml if call.nil? || joining_a_dead_call?(call)
 
         render xml: conference_twiml(call)
       end
@@ -155,11 +155,33 @@ module Custom
         end
       end
 
+      # call_sid is a parameter the browser chooses, so it says which call the
+      # leg wants, never that the agent may have it. The identity is the part
+      # that cannot be chosen: TokenService signs it into the SDK token and
+      # Twilio sends it back as From. ConferenceController#create enforces the
+      # exclusive claim on the dashboard side; without this check the same leg
+      # could skip that endpoint and dial straight into any call of the inbox.
+      #
+      # The agent the call is ringing for, or the one who claimed it. Taking a
+      # call from the queue still works: the dashboard claims it through
+      # ConferenceController#create before the Device ever dials, so by the time
+      # this leg arrives accepted_by_agent_id already names them.
       def find_call_for_agent
         sid = params[:call_sid].presence
         raise ArgumentError, 'call_sid is required for agent leg' if sid.blank?
 
-        inbox_calls.find_by!(provider_call_id: sid)
+        call = inbox_calls.find_by!(provider_call_id: sid)
+        return call if entitled_agent_id?(call)
+
+        Rails.logger.warn("VOICE_AGENT_LEG_REFUSED: call=#{call.id} identity=#{twilio_from}")
+        nil
+      end
+
+      def entitled_agent_id?(call)
+        match = twilio_from.delete_prefix('client:').match(Custom::Voice::Conference::Manager::AGENT_LABEL_PATTERN)
+        return false unless match && match[2].to_i == call.account_id
+
+        [call.accepted_by_agent_id, call.current_ring_agent_id].include?(match[1].to_i)
       end
 
       def sync_outbound_leg(call_sid:, direction:)

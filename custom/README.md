@@ -819,14 +819,16 @@ trampas que conviene no repetir.
    una vez corregida, `filter_by_agent` volvía a aplicar el criterio viejo una
    línea después y la anulaba. Ver [Qué llamadas ve cada agente](#qué-llamadas-ve-cada-agente).
 
+9. **La pata del agente del webhook de voz no verificaba quién entraba.**
+   `find_call_for_agent` resolvía la llamada por el `call_sid` que manda el
+   navegador, sin mirar quién era. Ahora la identidad del SDK
+   (`agent-<id>-account-<id>`, firmada en el token) tiene que ser el
+   `accepted_by_agent_id` o el `current_ring_agent_id` de la llamada; si no, se
+   devuelve TwiML de colgar. Tomar una llamada de la cola sigue funcionando
+   porque `ConferenceController#create` la reclama antes de que el Device marque.
+
 ### Pendientes conocidos
 
-- **Falta una verificación de autorización en la pata del agente** del webhook
-  de voz: la unión a la conferencia se resuelve por el identificador de la
-  llamada sin contrastarlo con el turno de timbre vigente. El endpoint del
-  dashboard sí hace valer el reclamo exclusivo; este camino no. Detectado por
-  revisión automática de seguridad y confirmado leyendo el código. **Es el
-  pendiente de mayor prioridad.**
 - **Borrar un inbox de voz no corre el teardown de Twilio** (ver arriba).
 - **Contestar una llamada desde la cola sobrescribe un rechazo previo** del
   mismo agente, así que una decline puede no quedar contada en las métricas.
