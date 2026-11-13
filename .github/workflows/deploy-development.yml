@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/com-1562-cortar-llamada-menu
 
 jobs:
   build-and-push:
