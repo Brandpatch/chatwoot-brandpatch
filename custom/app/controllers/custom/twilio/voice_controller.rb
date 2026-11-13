@@ -15,7 +15,13 @@ module Custom
       # caller waits before anyone can be rung, on top of however long they
       # already waited in queue.
       LANGUAGE_PROMPT = 'Para español, marque 1. For English, press 2.'
+      LANGUAGE_INVALID_PROMPT = 'Opción no válida. Para español, marque 1. For English, press 2.'
       LANGUAGE_GATHER_TIMEOUT = 3
+      # One retry, shared by silence and an invalid key alike: press nothing,
+      # press a key that is neither 1 nor 2, or any mix of the two across the
+      # two attempts, and the second miss defaults to Spanish rather than
+      # asking a third time.
+      LANGUAGE_MAX_ATTEMPTS = 2
 
       skip_before_action :verify_authenticity_token, raise: false
       before_action :set_inbox!
@@ -40,19 +46,28 @@ module Custom
 
         call = resolve_call
         return render xml: hangup_twiml if joining_a_dead_call?(call)
-        return render xml: language_menu_twiml if show_language_menu?(call)
+        return render xml: language_menu_twiml(attempt: 1) if show_language_menu?(call)
 
         render xml: conference_twiml(call)
       end
 
-      # The caller picked a language (or let both prompts time out — see
-      # language_menu_twiml). Only reachable for a call InboundCallBuilder
-      # created with defer_routing: true, so nobody rings before this runs.
+      # The caller pressed something (or let the prompt time out — every
+      # attempt sets action_on_empty_result, so this always gets called
+      # exactly once per attempt, never silently skipped). Only reachable
+      # for a call InboundCallBuilder created with defer_routing: true, so
+      # nobody rings before this runs.
       def language
         call = find_call_for_language!
-        call.update!(language: params[:Digits] == '2' ? 'en' : 'es')
-        Custom::Voice::InboundCallBuilder.continue_routing!(call)
-        render xml: conference_twiml(call)
+        digits = params[:Digits].to_s
+        return finish_language_menu!(call, 'es') if digits == '1'
+        return finish_language_menu!(call, 'en') if digits == '2'
+
+        attempt = params[:attempt].to_i
+        attempt = 1 if attempt < 1
+        return render xml: language_menu_twiml(attempt: attempt + 1, invalid: digits.present?) if attempt < LANGUAGE_MAX_ATTEMPTS
+
+        # Out of attempts — silence or an invalid key both ends here, in Spanish.
+        finish_language_menu!(call, 'es')
       end
 
       def conference_status
@@ -156,6 +171,12 @@ module Custom
         ::Twilio::TwiML::VoiceResponse.new(&:hangup).to_s
       end
 
+      def finish_language_menu!(call, language)
+        call.update!(language: language)
+        Custom::Voice::InboundCallBuilder.continue_routing!(call)
+        render xml: conference_twiml(call)
+      end
+
       # Explicit agent_leg?/incoming? checks rather than trusting
       # routing_deferred? alone: assign_initial_ring_agent! broadcasts the
       # ring to the agent's browser before it flips that flag off, so without
@@ -207,23 +228,22 @@ module Custom
         Custom::Call.where(inbox_id: inbox.id, provider: :twilio)
       end
 
-      # Two attempts, same action URL. Saying nothing on the first one is the
-      # ordinary Gather default (no action_on_empty_result): Twilio just
-      # reads on to the next verb, which is the second Gather. Saying
-      # nothing on the second one does carry action_on_empty_result, so
-      # #language still gets called — with Digits blank — and defaults to
-      # Spanish there. No third verb needed after these two: every real path
-      # (a digit on either attempt, or silence through both) ends by posting
-      # to the same action exactly once.
-      def language_menu_twiml
+      # One Gather per attempt, always with action_on_empty_result: true, so
+      # #language is called exactly once per attempt no matter what happened
+      # — a valid key, an invalid one, or silence — and decides from there
+      # whether to render another attempt or finish. The attempt number
+      # travels on the action URL's query string; #language reads it back to
+      # know how many are left.
+      #
+      # invalid is only for a key that was not 1 or 2: silence gets the same
+      # prompt again, since there is nothing to tell the caller was wrong.
+      def language_menu_twiml(attempt:, invalid: false)
+        message = invalid ? LANGUAGE_INVALID_PROMPT : LANGUAGE_PROMPT
+
         ::Twilio::TwiML::VoiceResponse.new.tap do |response|
-          response.gather(num_digits: 1, timeout: LANGUAGE_GATHER_TIMEOUT,
-                           action: language_action_url, method: 'POST') do |gather|
-            gather.say(message: LANGUAGE_PROMPT)
-          end
-          response.gather(num_digits: 1, timeout: LANGUAGE_GATHER_TIMEOUT,
-                           action: language_action_url, method: 'POST', action_on_empty_result: true) do |gather|
-            gather.say(message: LANGUAGE_PROMPT)
+          response.gather(num_digits: 1, timeout: LANGUAGE_GATHER_TIMEOUT, action: language_action_url(attempt),
+                           method: 'POST', action_on_empty_result: true) do |gather|
+            gather.say(message: message)
           end
         end.to_s
       end
@@ -232,9 +252,9 @@ module Custom
         inbox_calls.find_by!(provider_call_id: twilio_call_sid)
       end
 
-      def language_action_url
+      def language_action_url(attempt)
         phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: phone_digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: phone_digits, attempt: attempt)
       end
 
       def conference_twiml(call)
