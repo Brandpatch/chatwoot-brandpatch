@@ -7,19 +7,31 @@ module Custom
       # count as the person handling this customer.
       ASSIGNEE_PREFERENCE_WINDOW = 30.minutes
 
-      attr_reader :inbox, :call_sid, :provider, :extra_meta, :source_ids, :contact_attributes
+      attr_reader :inbox, :call_sid, :provider, :extra_meta, :source_ids, :contact_attributes, :defer_routing
 
-      def self.perform!(inbox:, call_sid:, caller:, provider: :twilio, extra_meta: {})
-        new(inbox: inbox, call_sid: call_sid, caller: caller, provider: provider, extra_meta: extra_meta).perform!
+      def self.perform!(inbox:, call_sid:, caller:, provider: :twilio, extra_meta: {}, defer_routing: false)
+        new(inbox: inbox, call_sid: call_sid, caller: caller, provider: provider,
+            extra_meta: extra_meta, defer_routing: defer_routing).perform!
       end
 
-      def initialize(inbox:, call_sid:, caller:, provider: :twilio, extra_meta: {})
+      # Called once the caller has picked a language (T4), to run the routing
+      # that perform! skipped when it created this call with defer_routing:
+      # true. Never runs the creation steps again — the call, its contact and
+      # its conversation already exist — so it rebuilds only enough state to
+      # reach route!, not a real caller/source_ids.
+      def self.continue_routing!(call)
+        new(inbox: call.inbox, call_sid: call.provider_call_id, caller: {}, provider: call.provider)
+          .send(:route!, call)
+      end
+
+      def initialize(inbox:, call_sid:, caller:, provider: :twilio, extra_meta: {}, defer_routing: false)
         @inbox = inbox
         @call_sid = call_sid
         @provider = provider.to_sym
         @extra_meta = extra_meta || {}
         @source_ids = Array(caller[:source_ids]).compact_blank
         @contact_attributes = caller[:contact_attributes] || {}
+        @defer_routing = defer_routing
       end
 
       def perform!
@@ -31,15 +43,16 @@ module Custom
           contact = contact_inbox.contact
           conversation = resolve_conversation!(contact, contact_inbox)
           call = create_call!(contact, conversation)
-          assign_initial_ring_agent!(call)
+          assign_initial_ring_agent!(call) unless defer_routing
           message = Custom::Voice::CallMessageBuilder.new(call).perform!
           call.update!(message_id: message.id)
           call
         end
 
-        # The timeout goes first: it is the only thing that ever expires this
-        # call, and it must be armed even if the sweep below fails.
-        schedule_ring_timeout!(call)
+        # Skipped while routing is deferred: arming the 30-second ring
+        # timeout now would count the menu against the first agent's turn.
+        # continue_routing! arms it once the caller has picked a language.
+        schedule_ring_timeout!(call) unless defer_routing
         end_superseded_calls!(call)
         call
       rescue ActiveRecord::RecordNotUnique
@@ -47,6 +60,17 @@ module Custom
       end
 
       private
+
+      # The routing perform! runs inline, or continue_routing! runs later:
+      # pick an agent, mark the call no longer deferred, arm the timeout.
+      # Order matters — the call stops reading as "in the menu" only once an
+      # agent has actually been reserved for it, never before.
+      def route!(call)
+        assign_initial_ring_agent!(call)
+        call.update!(routing_deferred: false)
+        schedule_ring_timeout!(call)
+        call
+      end
 
       def account
         inbox.account
@@ -100,7 +124,8 @@ module Custom
           direction: :incoming,
           status: 'ringing',
           provider_call_id: call_sid,
-          meta: { 'initiated_at' => Time.zone.now.to_i, 'conversation_created' => @conversation_created.present? }
+          meta: { 'initiated_at' => Time.zone.now.to_i, 'conversation_created' => @conversation_created.present?,
+                   'routing_deferred' => defer_routing.present? }
                   .merge(extra_meta.stringify_keys)
         )
         call.update!(conference_sid: call.default_conference_sid) if call.twilio?
