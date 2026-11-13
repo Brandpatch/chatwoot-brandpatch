@@ -49,10 +49,20 @@ module Custom
           call
         end
 
-        # Skipped while routing is deferred: arming the 30-second ring
-        # timeout now would count the menu against the first agent's turn.
-        # continue_routing! arms it once the caller has picked a language.
-        schedule_ring_timeout!(call) unless defer_routing
+        # The timeout goes first: it is the only thing that ever expires this
+        # call, and it must be armed even if the sweep below fails. Which one
+        # depends on whether routing was deferred: a call sitting in the
+        # language menu has no ring agent for schedule_ring_timeout! to
+        # track, and nothing else will ever notice if the caller hangs up
+        # there — inbound calls get no terminal status callback from Twilio
+        # at all. continue_routing! arms the ring timeout once the caller
+        # has picked a language; until then, LanguageMenuTimeoutJob is what
+        # closes the call if nobody ever does.
+        if defer_routing
+          schedule_language_menu_timeout!(call)
+        else
+          schedule_ring_timeout!(call)
+        end
         end_superseded_calls!(call)
         call
       rescue ActiveRecord::RecordNotUnique
@@ -180,6 +190,12 @@ module Custom
                     .where.not(id: call.id)
                     .pluck(:id)
                     .each { |id| Custom::Voice::EndSupersededCallJob.perform_later(id) }
+      end
+
+      def schedule_language_menu_timeout!(call)
+        Custom::Voice::LanguageMenuTimeoutJob
+          .set(wait: Custom::Voice::LanguageMenuTimeoutJob::ABANDON_TIMEOUT.seconds)
+          .perform_later(call.id)
       end
 
       # Always arm the timeout job, even with no agent to ring: the caller waits
