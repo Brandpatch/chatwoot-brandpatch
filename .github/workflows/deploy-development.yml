@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1555-interruptor-menu-idioma-bandeja
 
 jobs:
   build-and-push:
