@@ -38,6 +38,10 @@ const props = defineProps({
     type: Number,
     default: null,
   },
+  voiceLanguages: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(['close']);
@@ -51,6 +55,7 @@ const agentName = ref(props.name);
 const agentAvailability = ref(props.availability);
 const selectedRoleId = ref(props.customRoleId || props.type);
 const agentCredentials = ref({ email: props.email });
+const selectedVoiceLanguages = ref([...props.voiceLanguages]);
 
 const rules = {
   agentName: { required, minLength: minLength(1) },
@@ -126,6 +131,7 @@ const editAgent = async () => {
       id: props.id,
       name: agentName.value,
       availability: agentAvailability.value,
+      brandpatch_voice_languages: selectedVoiceLanguages.value,
     };
 
     if (selectedRole.value.name.startsWith('custom_')) {
@@ -181,6 +187,33 @@ const resetPassword = async () => {
             {{ $t('AGENT_MGMT.EDIT.FORM.AGENT_TYPE.ERROR') }}
           </span>
         </label>
+      </div>
+
+      <div class="w-full">
+        <label>
+          {{ $t('AGENT_MGMT.EDIT.FORM.VOICE_LANGUAGES.LABEL') }}
+          <span class="block mb-1 text-xs text-n-slate-11">
+            {{ $t('AGENT_MGMT.EDIT.FORM.VOICE_LANGUAGES.HINT') }}
+          </span>
+        </label>
+        <div class="flex flex-row gap-4">
+          <label class="inline-flex items-center gap-1.5 font-normal">
+            <input
+              v-model="selectedVoiceLanguages"
+              type="checkbox"
+              value="es"
+            />
+            {{ $t('AGENT_MGMT.EDIT.FORM.VOICE_LANGUAGES.ES') }}
+          </label>
+          <label class="inline-flex items-center gap-1.5 font-normal">
+            <input
+              v-model="selectedVoiceLanguages"
+              type="checkbox"
+              value="en"
+            />
+            {{ $t('AGENT_MGMT.EDIT.FORM.VOICE_LANGUAGES.EN') }}
+          </label>
+        </div>
       </div>
 
       <div class="w-full">
