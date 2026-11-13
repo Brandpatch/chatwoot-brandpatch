@@ -8,7 +8,7 @@ module Custom
           def get_channel_attributes(channel_type)
             attrs = super
             if channel_type == 'Channel::TwilioSms' && @inbox&.channel&.medium == 'sms'
-              attrs += [:ring_timeout_seconds, :max_wait_seconds]
+              attrs += [:ring_timeout_seconds, :max_wait_seconds, :voice_language_menu_enabled]
             end
             attrs
           end
