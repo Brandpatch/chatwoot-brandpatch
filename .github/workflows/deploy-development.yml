@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1559-diferir-enrutamiento-idioma
 
 jobs:
   build-and-push:
