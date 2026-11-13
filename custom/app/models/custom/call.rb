@@ -63,7 +63,7 @@ module Custom
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred
+                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred, :language
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
