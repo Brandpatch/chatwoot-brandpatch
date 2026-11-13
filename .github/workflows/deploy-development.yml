@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/com-1550-idiomas-por-agente
 
 jobs:
   build-and-push:
