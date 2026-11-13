@@ -40,6 +40,12 @@
           "LABEL": "Dirección de correo",
           "PLACEHOLDER": "Por favor, introduzca una dirección de correo electrónico del agente"
         },
+        "VOICE_LANGUAGES": {
+          "LABEL": "Idiomas de voz",
+          "HINT": "Idiomas que habla este agente, para el enrutamiento de llamadas",
+          "ES": "Español",
+          "EN": "Inglés"
+        },
         "SUBMIT": "Añadir agente"
       },
       "API": {
@@ -76,6 +82,12 @@
         "EMAIL": {
           "LABEL": "Dirección de email",
           "PLACEHOLDER": "Por favor, introduzca una dirección de correo electrónico del agente"
+        },
+        "VOICE_LANGUAGES": {
+          "LABEL": "Idiomas de voz",
+          "HINT": "Idiomas que habla este agente, para el enrutamiento de llamadas",
+          "ES": "Español",
+          "EN": "Inglés"
         },
         "AGENT_AVAILABILITY": {
           "LABEL": "Disponibilidad",
