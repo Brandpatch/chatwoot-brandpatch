@@ -63,7 +63,7 @@ module Custom
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created, :failure_reason, :provider_error_code
+                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -151,6 +151,19 @@ module Custom
     def terminal?     = TERMINAL_STATUSES.include?(status)
     def display_status = status.to_s.tr('_', '-')
     def direction_label = DISPLAY_DIRECTION[direction]
+
+    # True only while this call is sitting in the voice IVR's language menu
+    # (T4), waiting on a digit before anyone gets rung. Set by
+    # InboundCallBuilder when it defers routing, and cleared by
+    # InboundCallBuilder.continue_routing! once the caller picks a language —
+    # never by anything that merely finds no agent to ring, which is a
+    # resolved, legitimate wait and not this.
+    #
+    # Deliberately NOT "language is absent from meta": every call made before
+    # T4 existed, and every call on an inbox with the menu off, also lacks a
+    # language forever — that would exclude them from Conference::Manager's
+    # pickup query for good instead of just while this call is in the menu.
+    def routing_deferred? = ActiveModel::Type::Boolean.new.cast(routing_deferred)
 
     # The row-level twin of ANSWERED_SQL, for a record already in memory. Kept
     # next to it on purpose: a scope filters with the SQL and anything holding
