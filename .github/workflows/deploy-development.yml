@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1561-menu-idioma-twiml
 
 jobs:
   build-and-push:
