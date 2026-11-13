@@ -676,6 +676,10 @@
         "LABEL": "Permitir llamadas entrantes",
         "DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación. Los agentes todavía pueden realizar llamadas salientes."
       },
+      "LANGUAGE_MENU": {
+        "LABEL": "Preguntar idioma a quien llama",
+        "DESCRIPTION": "Reproducir un menú corto antes de hacer sonar a los agentes, preguntando si prefiere español o inglés. La llamada se enruta después a agentes que hablen ese idioma."
+      },
       "RING_TIMEOUT": {
         "LABEL": "Tiempo de timbre por agente (segundos)",
         "DESCRIPTION": "Cuánto suena la llamada en cada agente antes de pasar al siguiente agente disponible. Por defecto: 30 segundos.",

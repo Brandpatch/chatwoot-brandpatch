@@ -677,6 +677,10 @@
         "LABEL": "Allow incoming calls",
         "DESCRIPTION": "Let customers call this number. When turned off, incoming calls are declined automatically — agents aren't notified and no conversation is created. Agents can still place outgoing calls."
       },
+      "LANGUAGE_MENU": {
+        "LABEL": "Ask caller's language",
+        "DESCRIPTION": "Play a short menu before ringing agents, asking the caller to choose Spanish or English. The call is then routed to agents who speak that language."
+      },
       "RING_TIMEOUT": {
         "LABEL": "Ring timeout (seconds)",
         "DESCRIPTION": "How long a call rings for each agent before escalating to the next available agent. Default: 30 seconds.",
