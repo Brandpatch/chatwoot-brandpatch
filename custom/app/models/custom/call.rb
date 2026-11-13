@@ -63,7 +63,7 @@ module Custom
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created, :failure_reason, :provider_error_code
+                   :conversation_created, :failure_reason, :provider_error_code, :dialer
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -119,6 +119,29 @@ module Custom
 
     def default_conference_sid
       "conf_account_#{account_id}_call_#{id}"
+    end
+
+    # A call placed by the auto-dialer. Its agent joins the conference before
+    # the customer is dialled, so the row has to exist before Twilio has a SID
+    # to give it: provider_call_id holds a placeholder for the whole life of
+    # the call, the customer's real SID lands in dialer['customer_call_sid'],
+    # and every Twilio request about that leg carries the placeholder back in
+    # its URL. See Custom::Voice::DialerCustomerLeg.
+    def dialer? = dialer.present?
+
+    # Written under the row lock so the dialer keys never overwrite each other:
+    # the agent's join, the AMD webhook and the join timeout all add to this
+    # hash from different requests.
+    def merge_dialer!(attrs)
+      with_lock { update!(dialer: dialer.merge(attrs.stringify_keys)) }
+    end
+
+    # The SID Twilio knows the customer's leg by. Only differs from
+    # provider_call_id on a dialer call; before its customer is dialled it is
+    # the placeholder, which Twilio answers with a 404 that the callers below
+    # already treat as a leg that is gone.
+    def provider_leg_sid
+      dialer&.dig('customer_call_sid') || provider_call_id
     end
 
     # The conversation of a call belongs to whoever answers it, unless somebody
@@ -191,7 +214,11 @@ module Custom
     end
 
     def broadcast_voice_call_event(event, **extra)
-      payload = {
+      ActionCable.server.broadcast("account_#{account_id}", voice_call_event_payload(event, **extra))
+    end
+
+    def voice_call_event_payload(event, **extra)
+      {
         event: "voice_call.#{event}",
         data: { id: id, call_id: provider_call_id, provider: provider,
                 # The display_id, as every other conversation payload sends:
@@ -212,7 +239,6 @@ module Custom
                 # knows better still wins.
                 caller: { name: contact.name, phone: contact.phone_number, avatar: contact.avatar_url } }.merge(extra)
       }
-      ActionCable.server.broadcast("account_#{account_id}", payload)
     end
 
     def from_number = incoming? ? contact.phone_number : inbox.channel&.phone_number

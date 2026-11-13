@@ -57,7 +57,45 @@ module Custom
         reserved
       end
 
+      # Raised with the reason the dialer may not place a call right now, which
+      # the API hands back to the caller as is.
+      DialerUnavailable = Class.new(StandardError)
+
+      # The auto-dialer's way in: picks a free agent and yields it, so the caller
+      # creates the call inside the same transaction and under the same account
+      # lock reserve_for! takes. The new call is active and carries the agent in
+      # accepted_by_agent_id, which is exactly what occupied_agent_ids reads, so
+      # the agent is busy for inbound routing and for the next dialer request
+      # from the moment this commits — not from the moment their browser joins.
+      #
+      # Inbound comes first. A caller already waiting in the queue would go on
+      # waiting while the dialer handed the free agent to somebody who had not
+      # asked to talk to us, so the dialer stands down until the queue is empty.
+      # The pause stops it too: it is the supervisors taking the team off the
+      # phones, whichever direction the call would go.
+      #
+      # Nothing here dials. The customer is only called once the agent is in the
+      # conference, so whoever picks up always finds somebody there.
+      def reserve_for_dialer!
+        Custom::Call.transaction do
+          lock_account_reservations!
+          raise DialerUnavailable, 'paused' if inbox.account.brandpatch_inbound_calls_paused?
+          raise DialerUnavailable, 'inbound_waiting' if inbound_waiting?
+
+          agents = eligible_agents
+          raise DialerUnavailable, 'no_agent_available' if agents.empty?
+
+          yield round_robin_pick(agents)
+        end
+      end
+
       private
+
+      # Account-wide, like occupancy: a caller queued on any voice inbox is one
+      # that any of these agents might be offered.
+      def inbound_waiting?
+        Custom::Call.incoming.exists?(account_id: inbox.account_id, status: 'ringing', current_ring_agent_id: nil)
+      end
 
       # Private since the reservation fix: picking without claiming under the
       # same lock is what the race was, so reserve_for! is the only way in.

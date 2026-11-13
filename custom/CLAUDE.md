@@ -169,6 +169,9 @@ conversación en vez de su `display_id` y ambas coinciden mientras existe una
 sola cuenta.
 
 - **Estado**: en producción desde el 2026-09-09, validado con un smoke test
-  completo. Hay **pendientes conocidos** listados en el README, y el de mayor
-  prioridad es una verificación de autorización que falta en la pata del
-  agente del webhook de voz — revisarlo antes de ampliar la feature.
+  completo. Hay **pendientes conocidos** listados en el README.
+- **Marcador automático**: flag propio `auto_dialer_brandpatch`. Sus llamadas
+  llevan `meta['dialer']` y un `provider_call_id` placeholder durante toda su
+  vida; el SID real del cliente está en `meta['dialer']['customer_call_sid']`
+  (usar `Custom::Call#provider_leg_sid` para hablarle a Twilio). Ver la sección
+  del README.

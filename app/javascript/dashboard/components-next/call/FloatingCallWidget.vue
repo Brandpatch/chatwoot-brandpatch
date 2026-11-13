@@ -13,6 +13,7 @@ import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constant
 import WindowVisibilityHelper from 'dashboard/helper/AudioAlerts/WindowVisibilityHelper';
 import { syncIncomingCallNotifications } from 'dashboard/helper/callDesktopNotification';
 import { useAlert } from 'dashboard/composables';
+import { isLocalCall } from 'dashboard/helper/voice';
 import CallCard from 'dashboard/components-next/call/CallCard.vue';
 import MinimizedCallBubble from 'dashboard/components-next/call/MinimizedCallBubble.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
@@ -298,7 +299,7 @@ const handleJoinCall = async call => {
     callSid: call.callSid,
   });
 
-  if (result && conversation) {
+  if (result && (conversation || call.isDialer)) {
     router.push({
       name: 'inbox_conversation',
       params: { conversation_id: call.conversationId },
@@ -315,11 +316,71 @@ watch(
     if (
       call?.callDirection === VOICE_CALL_DIRECTION.OUTBOUND &&
       call?.provider !== VOICE_CALL_PROVIDERS.WHATSAPP &&
+      !call?.isDialer &&
       !hasActiveCall.value &&
       WindowVisibilityHelper.isWindowVisible()
     ) {
       handleJoinCall(call);
     }
+  },
+  { immediate: true }
+);
+
+// Auto-dialer calls join without a click and whatever the tab's visibility:
+// the agent never asked for this call, and the customer is only dialled once
+// they are in. A join that does not happen — no microphone, a Device that will
+// not register, a call already on the line — is hung up rather than left
+// pending, so the server frees the agent instead of holding them until the
+// join timeout.
+//
+// Every open tab of the agent receives the assignment, and each joining would
+// put the same agent in the conference twice. The tab that takes the lock
+// joins and keeps it until the call is gone from its store; the others skip,
+// and drop their card on the voice_call.accepted that follows the join.
+//
+// Watched by the first dialer call rather than incomingCalls[0] because the
+// flag can arrive on a card that already exists: the call's message.created
+// may come first and the merge keeps the same object.
+const isCallInWidget = callSid =>
+  activeCall.value?.callSid === callSid ||
+  incomingCalls.value.some(call => call.callSid === callSid);
+
+const untilCallLeavesWidget = callSid =>
+  new Promise(resolve => {
+    const stop = watch(
+      () => isCallInWidget(callSid),
+      present => {
+        if (present) return;
+        stop();
+        resolve();
+      }
+    );
+  });
+
+const autoJoinDialerCall = call =>
+  navigator.locks.request(
+    `voice-dialer-join-${call.callSid}`,
+    { ifAvailable: true },
+    async lock => {
+      if (!lock) return;
+
+      if (!hasActiveCall.value) await handleJoinCall(call);
+      if (
+        activeCall.value?.callSid !== call.callSid &&
+        !isLocalCall(call.callSid)
+      ) {
+        await rejectIncomingCall(call);
+        return;
+      }
+      if (isCallInWidget(call.callSid))
+        await untilCallLeavesWidget(call.callSid);
+    }
+  );
+
+watch(
+  () => incomingCalls.value.find(call => call.isDialer),
+  call => {
+    if (call) autoJoinDialerCall(call);
   },
   { immediate: true }
 );

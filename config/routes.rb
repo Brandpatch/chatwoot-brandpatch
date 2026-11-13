@@ -610,7 +610,9 @@ Rails.application.routes.draw do
                 resource :conference, only: %i[create destroy], controller: 'conference' do
                   get :token, on: :member
                 end
+                resources :dialer_calls, only: [:create], controller: 'dialer_calls'
               end
+              resources :dialer_calls, only: [:index], controller: 'dialer_calls'
               resources :contacts, only: [] do
                 post :call, on: :member, to: 'contacts/calls#create'
               end
@@ -624,6 +626,7 @@ Rails.application.routes.draw do
     post '/twilio/voice/custom/status/:phone',            to: 'custom/twilio/voice#status',            as: :custom_twilio_voice_status
     post '/twilio/voice/custom/conference_status/:phone', to: 'custom/twilio/voice#conference_status', as: :custom_twilio_voice_conference_status
     post '/twilio/voice/custom/recording_status/:phone',  to: 'custom/twilio/voice#recording_status',  as: :custom_twilio_voice_recording_status
+    post '/twilio/voice/custom/amd_status/:phone',        to: 'custom/twilio/voice#amd_status',        as: :custom_twilio_voice_amd_status
   end
 
   # ----------------------------------------------------------------------
