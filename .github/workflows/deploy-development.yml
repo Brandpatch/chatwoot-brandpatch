@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1563-router-filtra-idioma
 
 jobs:
   build-and-push:
