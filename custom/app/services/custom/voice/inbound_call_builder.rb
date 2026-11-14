@@ -147,7 +147,7 @@ module Custom
       # is what let two calls arriving together ring the same person.
       def assign_initial_ring_agent!(call)
         agent = Custom::Voice::CallRouter
-                .new(inbox: inbox, preferred_agent_id: preferred_agent_id(call))
+                .new(inbox: inbox, preferred_agent_id: preferred_agent_id(call), language: call.language)
                 .reserve_for!(call)
         return unless agent
 

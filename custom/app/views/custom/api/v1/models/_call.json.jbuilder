@@ -7,6 +7,7 @@ json.direction call.direction_label
 # the filters and the widget read them, but neither says on its own whether a
 # call was missed — see Custom::Call#display_kind.
 json.kind call.display_kind
+json.language call.language
 json.duration_seconds call.duration_seconds
 json.end_reason call.end_reason
 json.failure_reason call.failure_reason

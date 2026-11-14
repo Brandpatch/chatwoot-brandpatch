@@ -486,6 +486,7 @@ class ActionCableConnector extends BaseActionCableConnector {
         callDirection: VOICE_CALL_DIRECTION.INBOUND,
         senderId: null,
         caller: data.caller,
+        language: data.language,
       });
     }
   };

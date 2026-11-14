@@ -9,10 +9,17 @@ module Custom
       # arbitrary and fixed: "VOIC" read as ASCII.
       RESERVATION_LOCK_NAMESPACE = 0x564F4943
 
-      def initialize(inbox:, exclude_agent_ids: [], preferred_agent_id: nil)
+      # language is always an explicit argument, never read off the inbox or
+      # the account: the caller decides what to filter by. An outbound call
+      # (the auto-dialer, PR #84) has no language to speak of, and passing
+      # nothing here — rather than this router reaching for a language on
+      # its own — is what keeps that call from inheriting a filter that was
+      # never meant for it.
+      def initialize(inbox:, exclude_agent_ids: [], preferred_agent_id: nil, language: nil)
         @inbox = inbox
         @exclude_agent_ids = Array(exclude_agent_ids).compact
         @preferred_agent_id = preferred_agent_id
+        @language = language
       end
 
       # Picks an agent and writes the reservation onto the call in the same
@@ -96,12 +103,35 @@ module Custom
         Array(call.meta['rang_agent_ids']).map(&:to_i)
       end
 
-      attr_reader :inbox, :exclude_agent_ids, :preferred_agent_id
+      attr_reader :inbox, :exclude_agent_ids, :preferred_agent_id, :language
 
+      # The language filter is a preference, not a hard requirement: with
+      # nobody online who speaks it, the call still has to ring somebody
+      # rather than sit unanswered over a language mismatch. This runs
+      # inside reserve_for!'s own lock (called from next_agent, under
+      # lock_account_reservations!), the same one that fixed the
+      # simultaneous-calls race in October — filtering here, rather than
+      # picking the language-aware agent outside that lock, is what keeps
+      # that fix intact.
       def eligible_agents
-        inbox.members
-             .where(id: online_agent_ids)
-             .where.not(id: exclude_agent_ids + occupied_agent_ids)
+        base = inbox.members
+                    .where(id: online_agent_ids)
+                    .where.not(id: exclude_agent_ids + occupied_agent_ids)
+        return base if language.blank?
+
+        speaking = base.where(id: speaking_user_ids)
+        speaking.exists? ? speaking : base
+      end
+
+      # ::AccountUser, not AccountUser: this class lives under Custom::, where
+      # a bare reference resolves to the Custom::AccountUser prepend module
+      # instead of the real model — the same trap as the belongs_to calls in
+      # Custom::Concerns::AccountUser. Caught by actually running this in dev,
+      # not by reading the code.
+      def speaking_user_ids
+        ::AccountUser.where(account_id: inbox.account_id)
+                     .where('brandpatch_voice_languages @> ARRAY[?]::text[]', language)
+                     .select(:user_id)
       end
 
       # users.availability is vestigial and reads 'online' for everyone; the real

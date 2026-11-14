@@ -215,6 +215,14 @@ module Custom
                 conversation_id: conversation.display_id, account_id: account_id,
                 inbox_id: inbox_id,
                 current_ring_agent_id: current_ring_agent_id,
+                # Set once the caller picks a language (T4) and nil before
+                # that. ring_reassigned is what actually tells the chosen
+                # agent's browser to ring for a call that went through the
+                # menu — the eligible agent is only known after the language
+                # is, so by the time this fires the call always has one if
+                # it is ever going to. See T7: the widget has to show this
+                # before the agent answers, not after.
+                language: language,
                 # Who is calling, on every event. Without it the ring event
                 # carries no identity at all, and the dashboard has nothing to
                 # show until the call's message arrives over a separate
@@ -253,6 +261,7 @@ module Custom
         provider: provider,
         direction: direction,
         status: display_status,
+        language: language,
         duration_seconds: duration_seconds,
         end_reason: end_reason,
         failure_reason: failure_reason,
