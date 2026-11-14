@@ -21,7 +21,7 @@ module Custom
         rang_ids = Array(call.meta['rang_agent_ids']).map(&:to_i)
         previous_agent_id = call.current_ring_agent_id
         agent = Custom::Voice::CallRouter
-                .new(inbox: call.inbox, exclude_agent_ids: rang_ids)
+                .new(inbox: call.inbox, exclude_agent_ids: rang_ids, language: call.language)
                 .reserve_for!(call, replace: true)
 
         agent ? assign_to_agent!(agent, previous_agent_id) : unassign!

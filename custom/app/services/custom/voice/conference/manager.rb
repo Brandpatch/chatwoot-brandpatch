@@ -180,7 +180,7 @@ module Custom
         def assign_waiting_call!(waiting)
           rang_ids = Array(waiting.meta['rang_agent_ids']).map(&:to_i)
           agent = Custom::Voice::CallRouter
-                  .new(inbox: waiting.inbox, exclude_agent_ids: rang_ids)
+                  .new(inbox: waiting.inbox, exclude_agent_ids: rang_ids, language: waiting.language)
                   .reserve_for!(waiting)
           return unless agent
 
