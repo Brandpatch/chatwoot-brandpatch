@@ -65,6 +65,6 @@
       call.duration_seconds,
       call.inbox.name,
       call.conversation&.display_id,
-      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}") : nil
+      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}", default: call.language) : nil
     ] -%>
 <% end %>
