@@ -132,6 +132,10 @@ function extractCallData(message) {
     caller: extractCallerSnapshot(message),
     currentRingAgentId: call.current_ring_agent_id ?? null,
     acceptedByAgentId: call.accepted_by_agent_id ?? null,
+    // Null until the voice IVR's language menu resolves (T4); set from then
+    // on, so an agent rung after the menu always has it in time to see it
+    // before they answer. See Custom::Call#push_event_data.
+    language: call.language ?? null,
   };
 }
 
@@ -154,6 +158,7 @@ export function handleVoiceCallCreated(
     senderId,
     currentRingAgentId,
     acceptedByAgentId,
+    language,
   } = extractCallData(message);
 
   if (callSid && dismissedCallSids.has(callSid)) return;
@@ -189,6 +194,7 @@ export function handleVoiceCallCreated(
     callDirection,
     senderId,
     caller: extractCallerSnapshot(message),
+    language,
   });
 }
 
@@ -212,6 +218,7 @@ export function handleVoiceCallUpdated(
     senderId,
     currentRingAgentId,
     acceptedByAgentId,
+    language,
   } = extractCallData(message);
 
   const callsStore = useCallsStore();
@@ -255,6 +262,7 @@ export function handleVoiceCallUpdated(
       callDirection,
       senderId,
       caller: extractCallerSnapshot(message),
+      language,
     });
   }
 }

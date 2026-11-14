@@ -30,6 +30,15 @@ const route = useRoute();
 // end up disagreeing. See Custom::Call#display_kind.
 const kind = computed(() => props.call.kind);
 
+// Only set once the caller has picked a language in the voice IVR's menu
+// (T4); most calls have none, and the badge just doesn't render for those.
+const languageLabel = computed(() => {
+  if (!props.call.language) return '';
+  return props.call.language === 'en'
+    ? t('CALLS_PAGE.LANGUAGE.EN')
+    : t('CALLS_PAGE.LANGUAGE.ES');
+});
+
 const contactName = computed(() =>
   (props.call.contact.name || props.call.contact.phoneNumber || '').replace(
     /^\+/,
@@ -124,6 +133,12 @@ const conversationRoute = computed(() => ({
         {{ contactName }}
       </span>
       <CallStatusBadge :kind="kind" class="ms-auto shrink-0" />
+      <span
+        v-if="languageLabel"
+        class="text-label-small text-n-slate-11 shrink-0"
+      >
+        {{ languageLabel }}
+      </span>
       <RouterLink
         :to="conversationRoute"
         class="inline-flex items-center h-6 gap-1 px-2 text-label-small outline outline-1 -outline-offset-1 rounded-md outline-n-weak text-n-slate-11 hover:bg-n-alpha-1 shrink-0"
@@ -200,6 +215,12 @@ const conversationRoute = computed(() => ({
     >
       <div class="flex items-center gap-x-2 min-w-0 lg:contents py-3.5">
         <CallStatusBadge :kind="kind" class="shrink-0" />
+        <span
+          v-if="languageLabel"
+          class="text-label-small text-n-slate-11 shrink-0"
+        >
+          {{ languageLabel }}
+        </span>
         <div
           v-if="agentActionLabel"
           class="gap-x-1.5 min-w-0 flex items-center"
