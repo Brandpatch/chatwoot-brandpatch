@@ -123,10 +123,15 @@ module Custom
         speaking.exists? ? speaking : base
       end
 
+      # ::AccountUser, not AccountUser: this class lives under Custom::, where
+      # a bare reference resolves to the Custom::AccountUser prepend module
+      # instead of the real model — the same trap as the belongs_to calls in
+      # Custom::Concerns::AccountUser. Caught by actually running this in dev,
+      # not by reading the code.
       def speaking_user_ids
-        AccountUser.where(account_id: inbox.account_id)
-                   .where('brandpatch_voice_languages @> ARRAY[?]::text[]', language)
-                   .select(:user_id)
+        ::AccountUser.where(account_id: inbox.account_id)
+                     .where('brandpatch_voice_languages @> ARRAY[?]::text[]', language)
+                     .select(:user_id)
       end
 
       # users.availability is vestigial and reads 'online' for everyone; the real
