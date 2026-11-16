@@ -29,6 +29,7 @@ export default {
       apiKeySecret: '',
       ringTimeoutSeconds: this.inbox.ring_timeout_seconds || 30,
       maxWaitSeconds: this.inbox.max_wait_seconds || 300,
+      voiceLanguageMenuEnabled: this.inbox.voice_language_menu_enabled || false,
       isUpdating: false,
       isTogglingInbound: false,
     };
@@ -78,6 +79,9 @@ export default {
     'inbox.max_wait_seconds'(val) {
       this.maxWaitSeconds = val || 300;
     },
+    'inbox.voice_language_menu_enabled'(val) {
+      this.voiceLanguageMenuEnabled = val || false;
+    },
   },
   methods: {
     async handleInboundToggle(newValue) {
@@ -103,6 +107,7 @@ export default {
           voice_enabled: this.voiceEnabled,
           ring_timeout_seconds: Number(this.ringTimeoutSeconds) || 30,
           max_wait_seconds: Number(this.maxWaitSeconds) || 300,
+          voice_language_menu_enabled: this.voiceLanguageMenuEnabled,
         };
 
         if (this.needsCredentials) {
@@ -199,6 +204,13 @@ export default {
     </div>
 
     <div v-if="inbox.voice_enabled" class="flex flex-col gap-4">
+      <SettingsToggleSection
+        v-model="voiceLanguageMenuEnabled"
+        :header="$t('INBOX_MGMT.VOICE_CONFIGURATION.LANGUAGE_MENU.LABEL')"
+        :description="
+          $t('INBOX_MGMT.VOICE_CONFIGURATION.LANGUAGE_MENU.DESCRIPTION')
+        "
+      />
       <SettingsFieldSection
         :label="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.LABEL')"
         :help-text="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.DESCRIPTION')"

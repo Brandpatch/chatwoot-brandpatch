@@ -15,6 +15,7 @@ const { t } = useI18n();
 const agentName = ref('');
 const agentEmail = ref('');
 const selectedRoleId = ref('agent');
+const selectedVoiceLanguages = ref(['es']);
 
 const rules = {
   agentName: { required },
@@ -69,6 +70,7 @@ const addAgent = async () => {
     const payload = {
       name: agentName.value,
       email: agentEmail.value,
+      brandpatch_voice_languages: selectedVoiceLanguages.value,
     };
 
     if (selectedRole.value.name.startsWith('custom_')) {
@@ -145,6 +147,33 @@ const addAgent = async () => {
             @input="v$.agentEmail.$touch"
           />
         </label>
+      </div>
+
+      <div class="w-full">
+        <label>
+          {{ $t('AGENT_MGMT.ADD.FORM.VOICE_LANGUAGES.LABEL') }}
+          <span class="block mb-1 text-xs text-n-slate-11">
+            {{ $t('AGENT_MGMT.ADD.FORM.VOICE_LANGUAGES.HINT') }}
+          </span>
+        </label>
+        <div class="flex flex-row gap-4">
+          <label class="inline-flex items-center gap-1.5 font-normal">
+            <input
+              v-model="selectedVoiceLanguages"
+              type="checkbox"
+              value="es"
+            />
+            {{ $t('AGENT_MGMT.ADD.FORM.VOICE_LANGUAGES.ES') }}
+          </label>
+          <label class="inline-flex items-center gap-1.5 font-normal">
+            <input
+              v-model="selectedVoiceLanguages"
+              type="checkbox"
+              value="en"
+            />
+            {{ $t('AGENT_MGMT.ADD.FORM.VOICE_LANGUAGES.EN') }}
+          </label>
+        </div>
       </div>
 
       <div class="flex flex-row justify-end w-full gap-2 px-0 py-2">

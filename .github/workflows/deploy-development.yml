@@ -50,7 +50,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.AWS_SSH_KEY }}
           port: 22
-          source: "docker-compose.yaml,custom-brand/"
+          source: "docker-compose.yaml,custom-brand/,evolution-patch/"
           target: "~/chatwoot"
 
       - name: Update AWS Dev Server via SSH

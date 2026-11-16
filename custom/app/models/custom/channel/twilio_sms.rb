@@ -24,6 +24,19 @@ module Custom
         self.provider_config = (provider_config || {}).merge('max_wait_seconds' => value.to_i)
       end
 
+      # [brandpatch] Per-inbox switch for the voice IVR's language menu
+      # (T4, not yet built), so the feature can be turned on inbox by inbox
+      # instead of for all voice inboxes at once. Off by default.
+      def voice_language_menu_enabled?
+        provider_config['voice_language_menu_enabled'] == true
+      end
+
+      def voice_language_menu_enabled=(value)
+        self.provider_config = (provider_config || {}).merge(
+          'voice_language_menu_enabled' => ActiveModel::Type::Boolean.new.cast(value)
+        )
+      end
+
       def voice_call_webhook_url
         digits = phone_number.delete_prefix('+')
         Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: digits)

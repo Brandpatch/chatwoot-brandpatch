@@ -28,7 +28,8 @@
       I18n.t('reports.voice_calls_csv.agent_name'),
       I18n.t('reports.voice_calls_csv.duration_seconds'),
       I18n.t('reports.voice_calls_csv.inbox_name'),
-      I18n.t('reports.voice_calls_csv.conversation_id')
+      I18n.t('reports.voice_calls_csv.conversation_id'),
+      I18n.t('reports.voice_calls_csv.language')
     ] -%>
 <% @calls.find_each(batch_size: @batch_size, order: :desc) do |call| %>
 <%#
@@ -44,6 +45,14 @@
   The agent is whoever took the call inbound, and whoever dialled it outbound.
   Raw seconds rather than the formatted duration on screen, for the same reason
   every other export here does it: that is what adds up in a spreadsheet.
+
+  language is blank for any call that never went through the voice IVR's
+  language menu — most calls today, since it is turned on one inbox at a
+  time rather than everywhere at once. Where it is present, this column
+  is what answers the two questions that decide whether the menu is worth
+  keeping on: how often each language gets chosen, and — by comparing against
+  the agent column — how often Custom::Voice::CallRouter's fallback fires
+  because nobody online spoke the language picked.
 %>
 <%= raw CSVSafe.generate_line [
       local_time(call.created_at).strftime('%Y-%m-%d %H:%M:%S'),
@@ -55,6 +64,7 @@
       call.accepted_by_agent&.available_name,
       call.duration_seconds,
       call.inbox.name,
-      call.conversation&.display_id
+      call.conversation&.display_id,
+      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}", default: call.language) : nil
     ] -%>
 <% end %>

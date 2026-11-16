@@ -64,6 +64,17 @@ const channelIcon = computed(() => {
     return 'i-ri-whatsapp-fill';
   return 'i-ph-phone-bold';
 });
+
+// Only set once the caller has picked a language in the voice IVR's menu
+// (T4) — most calls today have none, and nothing shows for those. Shown
+// while the call still needs answering: the whole point is the agent
+// knowing what to expect before they pick up, not after.
+const languageLabel = computed(() => {
+  if (!isIncoming.value || !props.call?.language) return '';
+  return props.call.language === 'en'
+    ? t('CONVERSATION.VOICE_WIDGET.LANGUAGE.EN')
+    : t('CONVERSATION.VOICE_WIDGET.LANGUAGE.ES');
+});
 </script>
 
 <template>
@@ -138,6 +149,12 @@ const channelIcon = computed(() => {
             class="text-sm text-n-call-widget-sub-text truncate mb-0 tracking-tight leading-tight"
           >
             {{ callInfo.phoneNumber }}
+          </p>
+          <p
+            v-if="languageLabel"
+            class="text-xs font-medium text-n-call-widget-sub-text truncate mb-0 tracking-tight leading-tight"
+          >
+            {{ languageLabel }}
           </p>
         </div>
 

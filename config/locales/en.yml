@@ -259,6 +259,7 @@ en:
       duration_seconds: Duration (seconds)
       inbox_name: Inbox
       conversation_id: Conversation
+      language: Language
       kinds:
         ongoing: Ongoing
         incoming: Incoming
@@ -269,6 +270,9 @@ en:
       directions:
         incoming: Incoming
         outgoing: Outgoing
+      languages:
+        es: Spanish
+        en: English
     inbox_csv:
       inbox_name: Inbox name
       inbox_type: Inbox type

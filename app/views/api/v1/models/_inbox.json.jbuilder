@@ -155,6 +155,7 @@ if resource.twilio? && resource.channel.respond_to?(:voice_enabled?)
   json.has_api_key_secret resource.channel.try(:api_key_secret).present?
   json.ring_timeout_seconds resource.channel.try(:ring_timeout_seconds)
   json.max_wait_seconds resource.channel.try(:max_wait_seconds)
+  json.voice_language_menu_enabled resource.channel.try(:voice_language_menu_enabled?)
   if resource.channel.try(:twiml_app_sid).present?
     json.voice_call_webhook_url resource.channel.try(:voice_call_webhook_url)
     json.voice_status_webhook_url resource.channel.try(:voice_status_webhook_url)
