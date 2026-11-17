@@ -194,13 +194,19 @@ module Custom
     #
     # Outbound never reaches the missed branch: it always carries the agent who
     # dialled it.
-    def display_kind
-      return 'ongoing' unless terminal?
-      return 'failed' if status == 'failed'
-      return incoming? ? 'missed' : 'no_reply' if status == 'no_answer'
-      return 'missed' if incoming? && !answered?
+    def display_kind = self.class.kind_for(status: status, direction: direction, accepted_by_agent_id: accepted_by_agent_id)
 
-      incoming? ? 'incoming' : 'outgoing'
+    # The same answer from the three columns that decide it, so the CSV export
+    # can label thousands of rows without building a Call for each. Answered is
+    # the definition of #answered? and ANSWERED_SQL, written out.
+    def self.kind_for(status:, direction:, accepted_by_agent_id:)
+      incoming = direction == 'incoming'
+      return 'ongoing' unless TERMINAL_STATUSES.include?(status)
+      return 'failed' if status == 'failed'
+      return incoming ? 'missed' : 'no_reply' if status == 'no_answer'
+      return 'missed' if incoming && !(accepted_by_agent_id.present? && status != 'rejected')
+
+      incoming ? 'incoming' : 'outgoing'
     end
 
     def broadcast_voice_call_event(event, **extra)
