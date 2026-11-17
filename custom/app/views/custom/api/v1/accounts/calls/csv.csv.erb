@@ -1,11 +1,10 @@
 <%#
   One row per call, newest first, which is the order the list shows them in.
 
-  find_each is what keeps this flat in memory: a month is around 56.000 rows
-  and loading them at once, four associations each, is hundreds of megabytes
-  on a box with 3,7 GB. order: :desc walks the primary key backwards, and here
-  that is the same order as created_at — a call's row is written when the call
-  starts, so ids and start times run together.
+  Custom::Voice::CallsCsvRows reads the rows in pages and hands them over one
+  at a time, as plain values: a month is around 56.000 rows, and building a
+  Call with its associations for each one took longer than the 15 seconds the
+  server allows a request.
 %>
 <%#
   raw on every line: ERB escapes HTML by default, and CSVSafe defuses a
@@ -33,20 +32,24 @@
       I18n.t('reports.voice_calls_csv.missed_reason'),
       I18n.t('reports.voice_calls_csv.conversation_url')
     ] -%>
-<% @calls.find_each(batch_size: @batch_size, order: :desc) do |call| %>
+<% @rows.each do |row| %>
 <%#
   kind is the column the reader actually came for, and it is the one neither
   status nor direction can answer alone — an inbound call the caller abandoned
-  while it rang is stored as 'completed'. Custom::Call#display_kind decides it,
-  and the dashboard reads the same value, so the file and the screen cannot
-  label the same call differently.
+  while it rang is stored as 'completed'. Custom::Call.kind_for decides it, and
+  the dashboard reads the same value through display_kind, so the file and the
+  screen cannot label the same call differently.
 
   direction is kept beside it because it is what pivots: kind already tells
   you a call was missed, direction lets you count missed against received.
 
   The agent is whoever took the call inbound, and whoever dialled it outbound.
-  Raw seconds rather than the formatted duration on screen, for the same reason
-  every other export here does it: that is what adds up in a spreadsheet.
+  On a missed call it is the agents whose turn timed out or was declined, the
+  same ones the reports hold the miss against: a caller who hung up while it
+  rang is nobody's miss, so those rows carry the reason and no agent even
+  though the call did ring somebody. Raw seconds rather than the formatted
+  duration on screen, for the same reason every other export here does it:
+  that is what adds up in a spreadsheet.
 
   language is blank for any call that never went through the voice IVR's
   language menu — most calls today, since it is turned on one inbox at a
@@ -56,30 +59,23 @@
   the agent column — how often Custom::Voice::CallRouter's fallback fires
   because nobody online spoke the language picked.
 
-  On a missed call the agent column is not accepted_by_agent, which a missed
-  call never has: it names the agents whose turn timed out or was declined,
-  the same ones the reports hold the miss against. A caller who hung up while
-  it rang is nobody's miss, so those rows carry the reason and no agent even
-  though the call did ring somebody — which is also why this file and the
-  per-agent report agree on who missed what, where listing everyone rung would
-  not. The reason is blank on anything that is not a missed call.
-
   The two columns at the end were added last, after language, so a sheet that
-  reads this file by position keeps working.
+  reads this file by position keeps working. The reason is blank on anything
+  that is not a missed call.
 %>
 <%= raw CSVSafe.generate_line [
-      local_time(call.created_at).strftime('%Y-%m-%d %H:%M:%S'),
-      I18n.t("reports.voice_calls_csv.kinds.#{call.display_kind}"),
-      I18n.t("reports.voice_calls_csv.directions.#{call.direction}"),
-      call.from_number,
-      call.to_number,
-      call.contact&.name,
-      call.missed_reason ? call.missed_turn_agents.map(&:available_name).join(', ') : call.accepted_by_agent&.available_name,
-      call.duration_seconds,
-      call.inbox.name,
-      call.conversation&.display_id,
-      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}", default: call.language) : nil,
-      call.missed_reason ? I18n.t("reports.voice_calls_csv.missed_reasons.#{call.missed_reason}") : nil,
-      call.conversation && "#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{call.account_id}/conversations/#{call.conversation.display_id}"
+      local_time(row.created_at).strftime('%Y-%m-%d %H:%M:%S'),
+      I18n.t("reports.voice_calls_csv.kinds.#{row.kind}"),
+      I18n.t("reports.voice_calls_csv.directions.#{row.direction}"),
+      row.from_number,
+      row.to_number,
+      row.contact_name,
+      row.agent_name,
+      row.duration_seconds,
+      row.inbox_name,
+      row.conversation_id,
+      row.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{row.language}", default: row.language) : nil,
+      row.missed_reason ? I18n.t("reports.voice_calls_csv.missed_reasons.#{row.missed_reason}") : nil,
+      row.conversation_id && "#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{Current.account.id}/conversations/#{row.conversation_id}"
     ] -%>
 <% end %>
