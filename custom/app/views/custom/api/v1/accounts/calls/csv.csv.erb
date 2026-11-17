@@ -29,7 +29,9 @@
       I18n.t('reports.voice_calls_csv.duration_seconds'),
       I18n.t('reports.voice_calls_csv.inbox_name'),
       I18n.t('reports.voice_calls_csv.conversation_id'),
-      I18n.t('reports.voice_calls_csv.language')
+      I18n.t('reports.voice_calls_csv.language'),
+      I18n.t('reports.voice_calls_csv.missed_reason'),
+      I18n.t('reports.voice_calls_csv.conversation_url')
     ] -%>
 <% @calls.find_each(batch_size: @batch_size, order: :desc) do |call| %>
 <%#
@@ -53,6 +55,17 @@
   keeping on: how often each language gets chosen, and — by comparing against
   the agent column — how often Custom::Voice::CallRouter's fallback fires
   because nobody online spoke the language picked.
+
+  On a missed call the agent column is not accepted_by_agent, which a missed
+  call never has: it names the agents whose turn timed out or was declined,
+  the same ones the reports hold the miss against. A caller who hung up while
+  it rang is nobody's miss, so those rows carry the reason and no agent even
+  though the call did ring somebody — which is also why this file and the
+  per-agent report agree on who missed what, where listing everyone rung would
+  not. The reason is blank on anything that is not a missed call.
+
+  The two columns at the end were added last, after language, so a sheet that
+  reads this file by position keeps working.
 %>
 <%= raw CSVSafe.generate_line [
       local_time(call.created_at).strftime('%Y-%m-%d %H:%M:%S'),
@@ -61,10 +74,12 @@
       call.from_number,
       call.to_number,
       call.contact&.name,
-      call.accepted_by_agent&.available_name,
+      call.missed_reason ? call.missed_turn_agents.map(&:available_name).join(', ') : call.accepted_by_agent&.available_name,
       call.duration_seconds,
       call.inbox.name,
       call.conversation&.display_id,
-      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}", default: call.language) : nil
+      call.language.present? ? I18n.t("reports.voice_calls_csv.languages.#{call.language}", default: call.language) : nil,
+      call.missed_reason ? I18n.t("reports.voice_calls_csv.missed_reasons.#{call.missed_reason}") : nil,
+      call.conversation && "#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{call.account_id}/conversations/#{call.conversation.display_id}"
     ] -%>
 <% end %>

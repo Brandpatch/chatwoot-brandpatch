@@ -260,6 +260,13 @@ en:
       inbox_name: Inbox
       conversation_id: Conversation
       language: Language
+      missed_reason: Reason
+      conversation_url: Conversation link
+      missed_reasons:
+        no_agents_available: No agents available
+        agent_no_answer: Agent did not answer
+        agent_rejected: Rejected by the agent
+        caller_hung_up: Caller hung up while it rang
       kinds:
         ongoing: Ongoing
         incoming: Incoming

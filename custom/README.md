@@ -755,6 +755,20 @@ Excel. `CSVSafe` (gema `csv-safe`) es lo que usan todas las exportaciones de la
 app contra eso. Lleva todas las columnas del builder, no sólo las del bloque
 visible, y números crudos en vez de las cadenas formateadas de la pantalla.
 
+**Motivo y enlace (COM-1394).** Las dos últimas columnas son el motivo de una
+llamada perdida y el enlace a su conversación. El motivo sale de los turnos de
+timbre (`Custom::Call#missed_reason`), en este orden: sin ningún turno → "sin
+agentes disponibles" (nadie en línea y libre, o la cuenta en pausa; la llamada
+no guarda cuál de las dos); algún `timeout` → "el agente no contestó"; algún
+`rejected` → "rechazada por el agente"; si no, "el cliente colgó mientras
+sonaba". En producción, de 1.134 perdidas entrantes en 30 días: 500, 71 y 563
+(esas 563, con mediana de 4 s, son el motivo más grande y nadie lo había
+pedido). La columna Agente de una perdida nombra solo a quienes se les carga
+la pérdida (`MISSED_OUTCOMES`), nunca al que dejó de sonarle porque el cliente
+colgó: así el archivo y el informe por agente no se contradicen. Aun así **no
+cuadran en cantidades** — el informe cuenta turnos y el archivo cuenta
+llamadas no atendidas.
+
 Y uno aparte, bajo `/custom/api/v1/accounts/:account_id/`:
 
 ```

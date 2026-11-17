@@ -44,7 +44,7 @@ module Custom
             return render_missing_period if period.blank?
             return render_period_too_wide if period_days > MAX_EXPORT_DAYS
 
-            @calls = finder.filtered.includes(:contact, :conversation, :accepted_by_agent, inbox: :channel)
+            @calls = finder.filtered.includes(:contact, :conversation, :accepted_by_agent, { ring_attempts: :agent }, inbox: :channel)
             @batch_size = BATCH_SIZE
             @period_since = local_time(period.first).to_date
             @period_until = local_time(period.last).to_date
