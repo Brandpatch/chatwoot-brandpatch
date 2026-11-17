@@ -93,7 +93,9 @@ export class DashboardAudioNotificationHelper {
       tone: audioAlertTone,
     };
 
-    if (previousAudioTone !== audioAlertTone) {
+    // The helper starts out on the default tone, so a user on that tone never
+    // differs from it and, without the first check, never got an Audio to play.
+    if (!this.audioConfig.audio || previousAudioTone !== audioAlertTone) {
       this.intializeAudio();
     }
 
