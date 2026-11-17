@@ -10,11 +10,13 @@ module Custom
           end
 
           def initiate_call(to:, conference_sid: nil, agent_id: nil)
-            call = twilio_client.calls.create(**call_params(to))
+            params = call_params(to)
+            call = twilio_client.calls.create(**params)
 
             {
               provider: 'twilio',
               call_sid: call.sid,
+              caller_id: params[:from],
               status: call.status,
               call_direction: 'outbound',
               requires_agent_join: true,
@@ -29,7 +31,7 @@ module Custom
             phone_digits = @channel.phone_number.delete_prefix('+')
 
             {
-              from: @channel.phone_number,
+              from: @channel.voice_caller_id || @channel.phone_number,
               to: to,
               url: twilio_call_twiml_url(phone_digits),
               status_callback: twilio_call_status_url(phone_digits),

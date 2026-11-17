@@ -63,7 +63,7 @@ module Custom
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred, :language
+                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred, :language, :caller_id
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -242,7 +242,10 @@ module Custom
       ActionCable.server.broadcast("account_#{account_id}", payload)
     end
 
-    def from_number = incoming? ? contact.phone_number : inbox.channel&.phone_number
+    # On an outbound call, the number the customer saw, which is the inbox's own
+    # unless the inbox was set to call out with another. The call keeps it
+    # because the inbox's setting can change afterwards.
+    def from_number = incoming? ? contact.phone_number : (caller_id.presence || inbox.channel&.phone_number)
     def to_number   = incoming? ? inbox.channel&.phone_number : contact.phone_number
 
     def recording_url
