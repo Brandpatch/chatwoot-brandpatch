@@ -1,4 +1,5 @@
 import { MESSAGE_TYPE } from 'shared/constants/messages';
+import wootConstants from 'dashboard/constants/globals';
 import { showBadgeOnFavicon } from './faviconHelper';
 import { initFaviconSwitcher } from './faviconHelper';
 
@@ -18,6 +19,10 @@ const ALERT_DURATION = 10000;
 const ALERT_PATH_PREFIX = '/audio/dashboard/';
 const DEFAULT_TONE = 'ding';
 const DEFAULT_ALERT_TYPE = ['none'];
+// A bot hands a chat over in two calls: it reopens it, then assigns it, and the
+// second follows the first by 0.1 s typically and 2.2 s at the slowest. The
+// alert waits for the assignment so it can tell whose chat it ended up being.
+const HANDOFF_ASSIGNMENT_WAIT = 3000;
 
 export class DashboardAudioNotificationHelper {
   constructor(store) {
@@ -88,7 +93,9 @@ export class DashboardAudioNotificationHelper {
       tone: audioAlertTone,
     };
 
-    if (previousAudioTone !== audioAlertTone) {
+    // The helper starts out on the default tone, so a user on that tone never
+    // differs from it and, without the first check, never got an Audio to play.
+    if (!this.audioConfig.audio || previousAudioTone !== audioAlertTone) {
       this.intializeAudio();
     }
 
@@ -196,6 +203,46 @@ export class DashboardAudioNotificationHelper {
       return;
     }
 
+    this.alertUser(message);
+  };
+
+  // A bot handing a chat to the team is not a message, so onNewMessage never
+  // hears it. The server announces it with its own event.
+  //
+  // The conversation may not be in the store yet, which is the usual case for
+  // an agent who opened the dashboard after the chat started: a pending chat is
+  // not part of what the list loads. The status change that comes with the
+  // handoff puts it there, so by the time the wait is over it is.
+  onBotHandoff = conversation => {
+    setTimeout(
+      () => this.onConversationHandoff(conversation.id),
+      HANDOFF_ASSIGNMENT_WAIT
+    );
+  };
+
+  onConversationHandoff = conversationId => {
+    const conversation = this.store.getConversationById(conversationId);
+    if (conversation?.status !== wootConstants.STATUS_TYPE.OPEN) return;
+
+    if (!this.store.hasConversationPermission(this.currentUser)) {
+      return;
+    }
+
+    // The same shape a message carries, which is what shouldNotifyOnMessage
+    // reads to tell whether the conversation is mine, unassigned or somebody
+    // else's.
+    const message = {
+      conversation_id: conversationId,
+      conversation: { assignee_id: conversation.meta?.assignee?.id },
+    };
+    if (!this.shouldNotifyOnMessage(message)) {
+      return;
+    }
+
+    this.alertUser(message);
+  };
+
+  alertUser = message => {
     if (WindowVisibilityHelper.isWindowVisible()) {
       // If the user looking at the conversation, then dismiss the alert
       if (this.store.isMessageFromCurrentConversation(message)) {

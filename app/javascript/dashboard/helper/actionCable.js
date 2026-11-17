@@ -41,6 +41,7 @@ class ActionCableConnector extends BaseActionCableConnector {
       'message.updated': this.onMessageUpdated,
       'conversation.created': this.onConversationCreated,
       'conversation.status_changed': this.onStatusChange,
+      'conversation.bot_handoff': this.onBotHandoff,
       'user:logout': this.onLogout,
       'page:reload': this.onReload,
       'assignee.changed': this.onAssigneeChanged,
@@ -146,6 +147,11 @@ class ActionCableConnector extends BaseActionCableConnector {
   onStatusChange = data => {
     this.app.$store.dispatch('updateConversation', data);
     this.fetchConversationStats();
+  };
+
+  // eslint-disable-next-line class-methods-use-this
+  onBotHandoff = data => {
+    DashboardAudioNotificationHelper.onBotHandoff(data);
   };
 
   onConversationUpdated = data => {
