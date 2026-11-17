@@ -79,9 +79,6 @@ module Custom
     belongs_to :message, class_name: '::Message', optional: true, inverse_of: :custom_call
     belongs_to :accepted_by_agent, class_name: 'User', optional: true
     belongs_to :current_ring_agent, class_name: 'User', optional: true
-    # The delete rule lives in the database (cascade), as for every call
-    # association, so there is no dependent: here.
-    has_many :ring_attempts, class_name: 'Custom::CallRingAttempt', foreign_key: :call_id, inverse_of: :call, dependent: nil
 
     has_one_attached :recording
 
@@ -197,40 +194,19 @@ module Custom
     #
     # Outbound never reaches the missed branch: it always carries the agent who
     # dialled it.
-    def display_kind
-      return 'ongoing' unless terminal?
+    def display_kind = self.class.kind_for(status: status, direction: direction, accepted_by_agent_id: accepted_by_agent_id)
+
+    # The same answer from the three columns that decide it, so the CSV export
+    # can label thousands of rows without building a Call for each. Answered is
+    # the definition of #answered? and ANSWERED_SQL, written out.
+    def self.kind_for(status:, direction:, accepted_by_agent_id:)
+      incoming = direction == 'incoming'
+      return 'ongoing' unless TERMINAL_STATUSES.include?(status)
       return 'failed' if status == 'failed'
-      return incoming? ? 'missed' : 'no_reply' if status == 'no_answer'
-      return 'missed' if incoming? && !answered?
+      return incoming ? 'missed' : 'no_reply' if status == 'no_answer'
+      return 'missed' if incoming && !(accepted_by_agent_id.present? && status != 'rejected')
 
-      incoming? ? 'incoming' : 'outgoing'
-    end
-
-    # Why an inbound call went unattended, read off its ring turns. nil for
-    # anything display_kind does not call missed.
-    #
-    # Order matters: an agent who did not answer or declined is the most
-    # specific answer, and a caller who hung up while it rang is what is left
-    # when no turn was the agent's to decide. A call with no turns at all never
-    # reached an agent: nobody was online and free, or the account was paused,
-    # and the call keeps no trace of which.
-    def missed_reason
-      return unless display_kind == 'missed'
-
-      outcomes = ring_attempts.map(&:outcome)
-      return 'no_agents_available' if outcomes.empty?
-      return 'agent_no_answer' if outcomes.include?(Custom::CallRingAttempt::TIMEOUT)
-      return 'agent_rejected' if outcomes.include?(Custom::CallRingAttempt::REJECTED)
-
-      'caller_hung_up'
-    end
-
-    # The agents this miss is held against: the ones whose turn timed out or
-    # was declined. Same definition as Custom::CallRingAttempt::MISSED_OUTCOMES,
-    # so the agent named here is the agent the reports count it against.
-    def missed_turn_agents
-      ring_attempts.select { |turn| Custom::CallRingAttempt::MISSED_OUTCOMES.include?(turn.outcome) }
-                   .sort_by(&:rang_at).map(&:agent).uniq
+      incoming ? 'incoming' : 'outgoing'
     end
 
     def broadcast_voice_call_event(event, **extra)
