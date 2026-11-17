@@ -204,21 +204,14 @@ export class DashboardAudioNotificationHelper {
     this.alertUser(message);
   };
 
-  // Call before the store applies the change: it is the store that still
-  // remembers the conversation was pending.
-  //
   // A bot handing a chat to the team is not a message, so onNewMessage never
-  // hears it. What it does is take the conversation from pending to open.
-  onConversationStatusChange = conversation => {
-    if (conversation.status !== wootConstants.STATUS_TYPE.OPEN) return;
-    if (
-      !this.store.isMessageFromPendingConversation({
-        conversation_id: conversation.id,
-      })
-    ) {
-      return;
-    }
-
+  // hears it. The server announces it with its own event.
+  //
+  // The conversation may not be in the store yet, which is the usual case for
+  // an agent who opened the dashboard after the chat started: a pending chat is
+  // not part of what the list loads. The status change that comes with the
+  // handoff puts it there, so by the time the wait is over it is.
+  onBotHandoff = conversation => {
     setTimeout(
       () => this.onConversationHandoff(conversation.id),
       HANDOFF_ASSIGNMENT_WAIT
