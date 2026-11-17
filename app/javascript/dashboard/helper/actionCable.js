@@ -144,6 +144,7 @@ class ActionCableConnector extends BaseActionCableConnector {
   onReload = () => window.location.reload();
 
   onStatusChange = data => {
+    DashboardAudioNotificationHelper.onConversationStatusChange(data);
     this.app.$store.dispatch('updateConversation', data);
     this.fetchConversationStats();
   };

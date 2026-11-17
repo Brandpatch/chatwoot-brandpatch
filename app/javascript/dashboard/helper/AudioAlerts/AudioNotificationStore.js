@@ -28,6 +28,9 @@ class AudioNotificationStore {
     return activeConversation?.status === wootConstants.STATUS_TYPE.PENDING;
   };
 
+  getConversationById = conversationId =>
+    this.store.getters.getConversationById(conversationId);
+
   isMessageFromCurrentConversation = message => {
     return this.store.getters.getSelectedChat?.id === message.conversation_id;
   };

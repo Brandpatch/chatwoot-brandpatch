@@ -1,4 +1,5 @@
 import { MESSAGE_TYPE } from 'shared/constants/messages';
+import wootConstants from 'dashboard/constants/globals';
 import { showBadgeOnFavicon } from './faviconHelper';
 import { initFaviconSwitcher } from './faviconHelper';
 
@@ -18,6 +19,10 @@ const ALERT_DURATION = 10000;
 const ALERT_PATH_PREFIX = '/audio/dashboard/';
 const DEFAULT_TONE = 'ding';
 const DEFAULT_ALERT_TYPE = ['none'];
+// A bot hands a chat over in two calls: it reopens it, then assigns it, and the
+// second follows the first by 0.1 s typically and 2.2 s at the slowest. The
+// alert waits for the assignment so it can tell whose chat it ended up being.
+const HANDOFF_ASSIGNMENT_WAIT = 3000;
 
 export class DashboardAudioNotificationHelper {
   constructor(store) {
@@ -196,6 +201,53 @@ export class DashboardAudioNotificationHelper {
       return;
     }
 
+    this.alertUser(message);
+  };
+
+  // Call before the store applies the change: it is the store that still
+  // remembers the conversation was pending.
+  //
+  // A bot handing a chat to the team is not a message, so onNewMessage never
+  // hears it. What it does is take the conversation from pending to open.
+  onConversationStatusChange = conversation => {
+    if (conversation.status !== wootConstants.STATUS_TYPE.OPEN) return;
+    if (
+      !this.store.isMessageFromPendingConversation({
+        conversation_id: conversation.id,
+      })
+    ) {
+      return;
+    }
+
+    setTimeout(
+      () => this.onConversationHandoff(conversation.id),
+      HANDOFF_ASSIGNMENT_WAIT
+    );
+  };
+
+  onConversationHandoff = conversationId => {
+    const conversation = this.store.getConversationById(conversationId);
+    if (conversation?.status !== wootConstants.STATUS_TYPE.OPEN) return;
+
+    if (!this.store.hasConversationPermission(this.currentUser)) {
+      return;
+    }
+
+    // The same shape a message carries, which is what shouldNotifyOnMessage
+    // reads to tell whether the conversation is mine, unassigned or somebody
+    // else's.
+    const message = {
+      conversation_id: conversationId,
+      conversation: { assignee_id: conversation.meta?.assignee?.id },
+    };
+    if (!this.shouldNotifyOnMessage(message)) {
+      return;
+    }
+
+    this.alertUser(message);
+  };
+
+  alertUser = message => {
     if (WindowVisibilityHelper.isWindowVisible()) {
       // If the user looking at the conversation, then dismiss the alert
       if (this.store.isMessageFromCurrentConversation(message)) {
