@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/com-1591-sonido-traspaso-bot
 
 jobs:
   build-and-push:
