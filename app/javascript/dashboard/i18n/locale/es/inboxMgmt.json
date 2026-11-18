@@ -676,6 +676,13 @@
         "LABEL": "Permitir llamadas entrantes",
         "DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación. Los agentes todavía pueden realizar llamadas salientes."
       },
+      "CALLER_ID": {
+        "LABEL": "Número que ve el cliente al llamar",
+        "DESCRIPTION": "Número de teléfono que ve el cliente cuando un agente llama desde esta bandeja. Además del número de la bandeja, puedes elegir un identificador de llamada ya verificado en tu cuenta de Twilio. Las llamadas que el cliente devuelva a un número que no es de esta cuenta de Twilio llegan a Chatwoot solo si ese número las desvía a un número de esta cuenta. Los SMS enviados a ese número no llegan a Chatwoot.",
+        "INBOX_NUMBER": "El número de la bandeja ({number})",
+        "LOAD_ERROR": "No se pudo cargar la lista de números.",
+        "RETRY": "Reintentar"
+      },
       "LANGUAGE_MENU": {
         "LABEL": "Preguntar idioma a quien llama",
         "DESCRIPTION": "Reproducir un menú corto antes de hacer sonar a los agentes, preguntando si prefiere español o inglés. La llamada se enruta después a agentes que hablen ese idioma."

@@ -21,7 +21,8 @@ module Custom
                        :duration_seconds, :inbox_name, :conversation_id, :language, :missed_reason)
 
       CALL_COLUMNS = [:id, :created_at, :status, :direction, :duration_seconds, :accepted_by_agent_id,
-                      :inbox_id, :conversation_id, :contact_id, Arel.sql("calls.meta->>'language'")].freeze
+                      :inbox_id, :conversation_id, :contact_id, Arel.sql("calls.meta->>'language'"),
+                      Arel.sql("calls.meta->>'caller_id'")].freeze
 
       def initialize(calls, batch_size:)
         @calls = calls
@@ -52,14 +53,15 @@ module Custom
         turns = turns_of_missed(calls)
         load_agent_names(calls.filter_map { |call| call[5] } + turns.values.flatten(1).map { |turn| turn[1] })
 
-        calls.map do |id, created_at, status, direction, duration, agent_id, inbox_id, conversation_id, contact_id, language|
+        calls.map do |id, created_at, status, direction, duration, agent_id, inbox_id, conversation_id, contact_id, language, caller_id|
           kind = Custom::Call.kind_for(status: status, direction: direction, accepted_by_agent_id: agent_id)
           inbox_name, inbox_phone = @inboxes[inbox_id]
           contact_name, contact_phone = contacts[contact_id]&.drop(1)
           incoming = direction == 'incoming'
           missed_turns = turns[id]
 
-          Row.new(created_at, kind, direction, incoming ? contact_phone : inbox_phone, incoming ? inbox_phone : contact_phone,
+          # An outbound call keeps the number the customer saw, as Call#from_number does.
+          Row.new(created_at, kind, direction, incoming ? contact_phone : (caller_id.presence || inbox_phone), incoming ? inbox_phone : contact_phone,
                   contact_name, agent_name_for(kind, agent_id, missed_turns), duration, inbox_name, conversations[conversation_id],
                   language, kind == 'missed' ? missed_reason_for(missed_turns) : nil)
         end
