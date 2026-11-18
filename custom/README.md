@@ -605,6 +605,39 @@ defecto de una saliente fallida dice que la llamada no fue atendida, no que el
 contacto no atendió: eso último era falso para un número inexistente y hacía que
 el agente insistiera contra un número mal cargado.
 
+### Número que ve el cliente al llamar (caller ID de salida)
+
+Por defecto una saliente sale con el número de la bandeja. Una bandeja puede
+usar otro: `voice_caller_id`, guardado en `provider_config` (no es columna,
+igual que `voice_language_menu_enabled`) y vacío por defecto, que significa "el
+número de la bandeja". Se configura en Ajustes → Voz de la bandeja
+(`VoiceConfigurationPage.vue`).
+
+- **Un solo escritor.** `Provider::Twilio::Adapter#call_params` es el único
+  lugar que fija el `from` (`voice_caller_id || phone_number`). Las URLs de
+  TwiML y de estado siguen yendo por el número propio de la bandeja, así que
+  cambiar el `from` no toca el enrutamiento ni los webhooks.
+- **Se valida al guardar**, y sólo cuando el valor cambia: tiene que ser el
+  número de la bandeja o un caller ID verificado en la cuenta de Twilio de esa
+  bandeja (`outgoing_caller_ids`). Si no, Twilio rechaza la llamada con 21210
+  recién al marcar, que es el peor momento para enterarse. Si Twilio falla
+  *durante el guardado*, ese error no se atrapa y llega como un 500.
+- **Se guarda en la llamada.** `OutboundCallBuilder` escribe el número usado en
+  `calls.meta['caller_id']` y `Call#from_number` de una saliente lo lee de ahí;
+  el CSV lo lee de `meta->>'caller_id'`. Una saliente anterior al cambio, sin
+  ese dato, sigue mostrando el número de la bandeja.
+- **Endpoint**, sólo administradores: `GET
+  /custom/api/v1/accounts/:account_id/inboxes/:inbox_id/voice_caller_ids`
+  devuelve `{ payload: [{ phone_number, friendly_name }] }` con el número
+  propio primero. Una bandeja sin voz responde 422 sin consultar Twilio; un
+  error de Twilio responde 502 con su mensaje, nunca una lista vacía.
+
+**Lo que esto no resuelve:** un caller ID verificado es sólo para *salir*.
+Quien devuelva la llamada, o responda por SMS, a un número que no es de Twilio
+cae en el operador de ese número y no llega a Chatwoot. Además, la atestación
+SHAKEN/STIR de un caller ID verificado es B como máximo; para A el número tiene
+que estar en Twilio. Portarlo es la solución definitiva; esto es el puente.
+
 ### Aprovisionamiento en Twilio
 
 **No hay que configurar nada a mano en la consola de Twilio.** Al crear el
@@ -757,11 +790,11 @@ visible, y números crudos en vez de las cadenas formateadas de la pantalla.
 
 **Motivo y enlace (COM-1394).** Las dos últimas columnas son el motivo de una
 llamada perdida y el enlace a su conversación. El motivo sale de los turnos de
-timbre (`Custom::Call#missed_reason`), en este orden: sin ningún turno → "sin
-agentes disponibles" (nadie en línea y libre, o la cuenta en pausa; la llamada
-no guarda cuál de las dos); algún `timeout` → "el agente no contestó"; algún
-`rejected` → "rechazada por el agente"; si no, "el cliente colgó mientras
-sonaba". En producción, de 1.134 perdidas entrantes en 30 días: 500, 71 y 563
+timbre (`Custom::Voice::CallsCsvRows#missed_reason_for`), en este orden: sin
+ningún turno → "sin agentes disponibles" (nadie en línea y libre, o la cuenta
+en pausa; la llamada no guarda cuál de las dos); algún `timeout` → "el agente
+no contestó"; algún `rejected` → "rechazada por el agente"; si no, "el cliente
+colgó mientras sonaba". En producción, de 1.134 perdidas entrantes en 30 días: 500, 71 y 563
 (esas 563, con mediana de 4 s, son el motivo más grande y nadie lo había
 pedido). La columna Agente de una perdida nombra solo a quienes se les carga
 la pérdida (`MISSED_OUTCOMES`), nunca al que dejó de sonarle porque el cliente

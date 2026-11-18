@@ -1,8 +1,10 @@
 <script>
 import { useAlert } from 'dashboard/composables';
 import InboxesAPI from 'dashboard/api/inboxes';
+import VoiceCallerIdsAPI from 'dashboard/api/voiceCallerIds';
 import SettingsFieldSection from 'dashboard/components-next/Settings/SettingsFieldSection.vue';
 import SettingsToggleSection from 'dashboard/components-next/Settings/SettingsToggleSection.vue';
+import NextSelect from 'dashboard/components-next/select/Select.vue';
 import NextInput from 'dashboard/components-next/input/Input.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import Spinner from 'dashboard/components-next/spinner/Spinner.vue';
@@ -11,6 +13,7 @@ export default {
   components: {
     SettingsFieldSection,
     SettingsToggleSection,
+    NextSelect,
     NextInput,
     NextButton,
     Spinner,
@@ -30,6 +33,10 @@ export default {
       ringTimeoutSeconds: this.inbox.ring_timeout_seconds || 30,
       maxWaitSeconds: this.inbox.max_wait_seconds || 300,
       voiceLanguageMenuEnabled: this.inbox.voice_language_menu_enabled || false,
+      voiceCallerId: this.inbox.voice_caller_id || '',
+      callerIdChoices: [],
+      isLoadingCallerIds: false,
+      callerIdsLoadFailed: false,
       isUpdating: false,
       isTogglingInbound: false,
     };
@@ -53,6 +60,40 @@ export default {
     },
     needsApiKeySid() {
       return this.needsCredentials && !this.hasApiKeySid;
+    },
+    callerIdOptions() {
+      const ownNumber = this.inbox.phone_number;
+      const options = [
+        {
+          value: '',
+          label: this.$t(
+            'INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.INBOX_NUMBER',
+            { number: ownNumber }
+          ),
+        },
+      ];
+      this.callerIdChoices
+        .filter(choice => choice.phone_number !== ownNumber)
+        .forEach(choice => {
+          const name = choice.friendly_name;
+          const showName = name && name !== choice.phone_number;
+          options.push({
+            value: choice.phone_number,
+            label: showName
+              ? `${choice.phone_number} (${name})`
+              : choice.phone_number,
+          });
+        });
+      const isListed = options.some(
+        option => option.value === this.voiceCallerId
+      );
+      if (!isListed) {
+        options.push({
+          value: this.voiceCallerId,
+          label: this.voiceCallerId,
+        });
+      }
+      return options;
     },
     isSubmitDisabled() {
       if (!this.voiceEnabled) return false;
@@ -82,8 +123,29 @@ export default {
     'inbox.voice_language_menu_enabled'(val) {
       this.voiceLanguageMenuEnabled = val || false;
     },
+    'inbox.voice_caller_id'(val) {
+      this.voiceCallerId = val || '';
+    },
+    'inbox.voice_enabled'(val) {
+      if (val) this.loadCallerIds();
+    },
+  },
+  mounted() {
+    if (this.inbox.voice_enabled) this.loadCallerIds();
   },
   methods: {
+    async loadCallerIds() {
+      this.isLoadingCallerIds = true;
+      this.callerIdsLoadFailed = false;
+      try {
+        const { data } = await VoiceCallerIdsAPI.get(this.inbox.id);
+        this.callerIdChoices = data.payload;
+      } catch (_) {
+        this.callerIdsLoadFailed = true;
+      } finally {
+        this.isLoadingCallerIds = false;
+      }
+    },
     async handleInboundToggle(newValue) {
       if (this.isTogglingInbound) return;
       const previousValue = this.inboundCallsEnabled;
@@ -108,6 +170,7 @@ export default {
           ring_timeout_seconds: Number(this.ringTimeoutSeconds) || 30,
           max_wait_seconds: Number(this.maxWaitSeconds) || 300,
           voice_language_menu_enabled: this.voiceLanguageMenuEnabled,
+          voice_caller_id: this.voiceCallerId,
         };
 
         if (this.needsCredentials) {
@@ -125,7 +188,9 @@ export default {
         this.apiKeySecret = '';
         useAlert(this.$t('INBOX_MGMT.EDIT.API.SUCCESS_MESSAGE'));
       } catch (error) {
-        useAlert(this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
+        useAlert(
+          error.message || this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE')
+        );
       } finally {
         this.isUpdating = false;
       }
@@ -204,6 +269,26 @@ export default {
     </div>
 
     <div v-if="inbox.voice_enabled" class="flex flex-col gap-4">
+      <SettingsFieldSection
+        :label="$t('INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.LABEL')"
+        :help-text="$t('INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.DESCRIPTION')"
+      >
+        <div class="flex items-center gap-3">
+          <NextSelect
+            v-model="voiceCallerId"
+            :options="callerIdOptions"
+            :disabled="isLoadingCallerIds"
+            :aria-label="$t('INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.LABEL')"
+          />
+          <Spinner v-if="isLoadingCallerIds" class="size-4 text-n-slate-11" />
+        </div>
+        <p v-if="callerIdsLoadFailed" class="mt-2 mb-0 text-sm text-n-ruby-11">
+          {{ $t('INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.LOAD_ERROR') }}
+          <button type="button" class="underline" @click="loadCallerIds">
+            {{ $t('INBOX_MGMT.VOICE_CONFIGURATION.CALLER_ID.RETRY') }}
+          </button>
+        </p>
+      </SettingsFieldSection>
       <SettingsToggleSection
         v-model="voiceLanguageMenuEnabled"
         :header="$t('INBOX_MGMT.VOICE_CONFIGURATION.LANGUAGE_MENU.LABEL')"
