@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1601-numero-de-salida-por-bandeja
 
 jobs:
   build-and-push:
