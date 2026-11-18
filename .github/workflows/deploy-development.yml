@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/com-1637-menu-idioma-cliente-colgo
 
 jobs:
   build-and-push:
