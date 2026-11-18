@@ -56,7 +56,14 @@ module Custom
       # exactly once per attempt, never silently skipped). Only reachable
       # for a call InboundCallBuilder created with defer_routing: true, so
       # nobody rings before this runs.
+      #
+      # A caller who hangs up while the menu plays still gets this called, with
+      # CallStatus=completed: there is nobody left to ask or to ring, so it
+      # neither picks a language nor routes. The call is closed by its status
+      # callback, or by LanguageMenuTimeoutJob if that never comes.
       def language
+        return head :no_content if params[:CallStatus] == 'completed'
+
         call = find_call_for_language!
         digits = params[:Digits].to_s
         return finish_language_menu!(call, 'es') if digits == '1'

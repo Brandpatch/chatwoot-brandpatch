@@ -22,7 +22,7 @@ module Custom
 
       CALL_COLUMNS = [:id, :created_at, :status, :direction, :duration_seconds, :accepted_by_agent_id,
                       :inbox_id, :conversation_id, :contact_id, Arel.sql("calls.meta->>'language'"),
-                      Arel.sql("calls.meta->>'caller_id'")].freeze
+                      Arel.sql("calls.meta->>'caller_id'"), Arel.sql("calls.meta->>'routing_deferred'")].freeze
 
       def initialize(calls, batch_size:)
         @calls = calls
@@ -53,7 +53,7 @@ module Custom
         turns = turns_of_missed(calls)
         load_agent_names(calls.filter_map { |call| call[5] } + turns.values.flatten(1).map { |turn| turn[1] })
 
-        calls.map do |id, created_at, status, direction, duration, agent_id, inbox_id, conversation_id, contact_id, language, caller_id|
+        calls.map do |id, created_at, status, direction, duration, agent_id, inbox_id, conversation_id, contact_id, language, caller_id, routing_deferred|
           kind = Custom::Call.kind_for(status: status, direction: direction, accepted_by_agent_id: agent_id)
           inbox_name, inbox_phone = @inboxes[inbox_id]
           contact_name, contact_phone = contacts[contact_id]&.drop(1)
@@ -63,7 +63,7 @@ module Custom
           # An outbound call keeps the number the customer saw, as Call#from_number does.
           Row.new(created_at, kind, direction, incoming ? contact_phone : (caller_id.presence || inbox_phone), incoming ? inbox_phone : contact_phone,
                   contact_name, agent_name_for(kind, agent_id, missed_turns), duration, inbox_name, conversations[conversation_id],
-                  language, kind == 'missed' ? missed_reason_for(missed_turns) : nil)
+                  language, kind == 'missed' ? missed_reason_for(missed_turns, routing_deferred == 'true') : nil)
         end
       end
 
@@ -95,9 +95,12 @@ module Custom
       # answer, and a caller who hung up while it rang is what is left when no turn
       # was the agent's to decide. A call with no turns at all never reached an
       # agent: nobody was online and free, or the account was paused, and the call
-      # keeps no trace of which.
-      def missed_reason_for(turns)
+      # keeps no trace of which. Unless it is still marked as waiting in the
+      # language menu, which only a call that never got past the menu is: the
+      # caller hung up there, before anyone was asked to ring.
+      def missed_reason_for(turns, in_language_menu)
         outcomes = turns.map(&:last)
+        return 'caller_left_language_menu' if outcomes.empty? && in_language_menu
         return 'no_agents_available' if outcomes.empty?
         return 'agent_no_answer' if outcomes.include?(Custom::CallRingAttempt::TIMEOUT)
         return 'agent_rejected' if outcomes.include?(Custom::CallRingAttempt::REJECTED)
