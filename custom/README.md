@@ -448,7 +448,9 @@ carga el esquema y después migra— pero no sirve como referencia; mirar la bas
    a `/twilio/voice/custom/call/<numero>`.
 2. `Custom::Twilio::VoiceController#call_twiml` valida la firma de Twilio,
    resuelve o crea la llamada con `InboundCallBuilder` y devuelve el TwiML que
-   mete al cliente en una conferencia.
+   mete al cliente en una conferencia. En una bandeja con el menú de idioma
+   encendido devuelve antes el menú, y el paso 3 espera a que el cliente elija
+   (ver "Menú de idioma de las entrantes").
 3. `CallRouter` elige el primer agente y se abre su turno en
    `call_ring_attempts`. Se arma `CallRingTimeoutJob` con el timeout del inbox.
 4. El agente ve el widget flotante y contesta. El navegador se conecta por el
@@ -486,6 +488,50 @@ que llega**: el resto rebota contra `return if
 TERMINAL_STATUSES.include?(call.status)`. Tenerlo presente antes de tocar
 cualquier cosa que escriba el estado — un bug real salió de ahí, con dos
 escritores separados por menos de 200 ms.
+
+### Menú de idioma de las entrantes
+
+Antes de sonarle a un agente, la llamada puede preguntarle al cliente su idioma
+("Para español, marque 1. For English, press 2.") y enrutarse a agentes que lo
+hablen. Es un interruptor por bandeja, `voice_language_menu_enabled` en
+`provider_config` (Ajustes → Voz, "Preguntar idioma a quien llama"), apagado
+por defecto: sin él la entrante va directo al paso 3 de arriba.
+
+**Cómo corre.**
+
+1. `call_twiml` crea la llamada con `defer_routing: true`. `InboundCallBuilder`
+   no elige agente todavía y deja `meta['routing_deferred']` en `true`.
+2. `show_language_menu?` (entrante, no es la pata de un agente y
+   `routing_deferred?`) devuelve el menú: un `<Gather>` de una tecla con
+   `LANGUAGE_GATHER_TIMEOUT` de 3 s y `action_on_empty_result`, así que Twilio
+   llama a `/twilio/voice/custom/language/:phone` exactamente una vez por
+   intento, haya habido tecla, silencio o una tecla inválida.
+3. `VoiceController#language`: 1 es español y 2 inglés. Cualquier otra cosa
+   repite el menú una vez (con "Opción no válida" si hubo una tecla). Hay
+   `LANGUAGE_MAX_ATTEMPTS` = 2 intentos en total, compartidos entre silencio y
+   tecla inválida, y el segundo fallo cae a español.
+4. `finish_language_menu!` guarda el idioma en `meta['language']` y llama a
+   `InboundCallBuilder.continue_routing!`: ahí se elige el agente, se apaga
+   `routing_deferred` y se arma el timeout de timbre. `CallRouter` prefiere a los
+   agentes con ese idioma en su perfil (`brandpatch_voice_languages`) y, si no
+   hay ninguno disponible, cae a cualquiera.
+
+**`routing_deferred` es una marca propia y no "no hay idioma todavía".** Una
+llamada de una bandeja sin menú tampoco tiene nunca idioma, y quedaría excluida
+para siempre. La marca se enciende al crear la llamada y se apaga exactamente
+cuando se enruta. Mientras está encendida, `Conference::Manager#assign_waiting_calls!`
+deja la llamada en paz: ofrecérsela a un agente sería sonarle antes de que el
+cliente termine de elegir idioma.
+
+**Si el cliente cuelga durante el menú.** Twilio igual llama a `#language`, con
+`CallStatus=completed`. En ese caso no se guarda idioma, no se enruta y no le
+suena a nadie: la llamada la cierra el callback de estado de Twilio o, si no
+llegó, `LanguageMenuTimeoutJob` a los 30 s, que existe para eso. La llamada queda
+con `routing_deferred` en `true`, sin idioma y sin turnos de timbre, y el CSV la
+muestra con el motivo "Caller hung up in the language menu". (Antes de este
+arreglo, COM-1637, se enrutaba igual: a un agente le sonaba unos 0-2 s una llamada
+muerta y la llamada quedaba con idioma español sin que el cliente lo hubiera
+elegido. Esas llamadas viejas siguen así en la base.)
 
 ### Enrutamiento, escalación y cola
 
@@ -715,6 +761,7 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/services/custom/voice/provider/twilio/token_service.rb` | Acuña el JWT del SDK; la identidad es `agent-<id>-account-<id>` |
 | `custom/app/services/custom/voice/provider/twilio/recording_attachment_service.rb` | Descarga la grabación y la adjunta |
 | `custom/app/jobs/custom/voice/call_ring_timeout_job.rb` | Vence el turno y dispara la escalación |
+| `custom/app/jobs/custom/voice/language_menu_timeout_job.rb` | Cierra a los 30 s una llamada que sigue en el menú de idioma (el cliente colgó ahí) |
 | `custom/app/jobs/custom/voice/provider/twilio/recording_attachment_job.rb` | Adjunta la grabación en segundo plano (cola `low`) |
 | `custom/app/views/custom/api/v1/accounts/calls/index.json.jbuilder` | Listado de llamadas |
 | `custom/app/views/custom/api/v1/models/_call.json.jbuilder` | Serialización de una llamada |

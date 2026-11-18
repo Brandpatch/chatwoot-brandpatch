@@ -267,6 +267,7 @@ en:
         agent_no_answer: Agent did not answer
         agent_rejected: Rejected by the agent
         caller_hung_up: Caller hung up while it rang
+        caller_left_language_menu: Caller hung up in the language menu
       kinds:
         ongoing: Ongoing
         incoming: Incoming
