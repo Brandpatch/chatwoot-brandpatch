@@ -610,6 +610,7 @@ Rails.application.routes.draw do
                 resource :conference, only: %i[create destroy], controller: 'conference' do
                   get :token, on: :member
                 end
+                resources :voice_caller_ids, only: [:index], controller: 'voice_caller_ids'
               end
               resources :contacts, only: [] do
                 post :call, on: :member, to: 'contacts/calls#create'

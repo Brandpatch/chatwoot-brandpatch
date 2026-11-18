@@ -677,6 +677,13 @@
         "LABEL": "Allow incoming calls",
         "DESCRIPTION": "Let customers call this number. When turned off, incoming calls are declined automatically — agents aren't notified and no conversation is created. Agents can still place outgoing calls."
       },
+      "CALLER_ID": {
+        "LABEL": "Number customers see when called",
+        "DESCRIPTION": "Phone number shown to the customer when an agent calls from this inbox. Besides this inbox's number, you can pick a caller ID already verified in your Twilio account. Calls that a customer returns to a number that isn't from this Twilio account reach Chatwoot only if that number forwards its calls to a number in this account. Text messages sent to it do not reach Chatwoot.",
+        "INBOX_NUMBER": "This inbox's number ({number})",
+        "LOAD_ERROR": "The list of numbers could not be loaded.",
+        "RETRY": "Try again"
+      },
       "LANGUAGE_MENU": {
         "LABEL": "Ask caller's language",
         "DESCRIPTION": "Play a short menu before ringing agents, asking the caller to choose Spanish or English. The call is then routed to agents who speak that language."
