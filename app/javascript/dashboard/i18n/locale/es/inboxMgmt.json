@@ -678,7 +678,7 @@
       },
       "CALLER_ID": {
         "LABEL": "Número que ve el cliente al llamar",
-        "DESCRIPTION": "Número de teléfono que ve el cliente cuando un agente llama desde esta bandeja. Además del número de la bandeja, puedes elegir un identificador de llamada ya verificado en tu cuenta de Twilio. Los clientes que devuelvan la llamada o escriban a un número que no es de esta cuenta de Twilio no llegarán a Chatwoot.",
+        "DESCRIPTION": "Número de teléfono que ve el cliente cuando un agente llama desde esta bandeja. Además del número de la bandeja, puedes elegir un identificador de llamada ya verificado en tu cuenta de Twilio. Las llamadas que el cliente devuelva a un número que no es de esta cuenta de Twilio llegan a Chatwoot solo si ese número las desvía a un número de esta cuenta. Los SMS enviados a ese número no llegan a Chatwoot.",
         "INBOX_NUMBER": "El número de la bandeja ({number})",
         "LOAD_ERROR": "No se pudo cargar la lista de números.",
         "RETRY": "Reintentar"

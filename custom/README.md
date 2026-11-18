@@ -634,10 +634,14 @@ número de la bandeja". Se configura en Ajustes → Voz de la bandeja
   error de Twilio responde 502 con su mensaje, nunca una lista vacía.
 
 **Lo que esto no resuelve:** un caller ID verificado es sólo para *salir*.
-Quien devuelva la llamada, o responda por SMS, a un número que no es de Twilio
-cae en el operador de ese número y no llega a Chatwoot. Además, la atestación
-SHAKEN/STIR de un caller ID verificado es B como máximo; para A el número tiene
-que estar en Twilio. Portarlo es la solución definitiva; esto es el puente.
+Las llamadas que el cliente devuelva a ese número llegan a Chatwoot sólo si el
+operador del número las desvía a un número Twilio de la misma cuenta; entonces
+entran como una entrante normal, con el cliente como `From` y el número desviado
+en `ForwardedFrom` (en producción AT&T ya desvía así). Sin desvío caen en el
+operador. Los SMS a ese número no llegan a Chatwoot en ningún caso. Además, la
+atestación SHAKEN/STIR de un caller ID verificado es B como máximo; para A el
+número tiene que estar en Twilio. Portarlo es la solución definitiva; esto es
+el puente.
 
 ### Aprovisionamiento en Twilio
 
