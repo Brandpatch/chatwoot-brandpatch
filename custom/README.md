@@ -621,7 +621,8 @@ número de la bandeja". Se configura en Ajustes → Voz de la bandeja
   número de la bandeja o un caller ID verificado en la cuenta de Twilio de esa
   bandeja (`outgoing_caller_ids`). Si no, Twilio rechaza la llamada con 21210
   recién al marcar, que es el peor momento para enterarse. Si Twilio falla
-  *durante el guardado*, ese error no se atrapa y llega como un 500.
+  *durante el guardado*, la validación lo atrapa (`TwilioError`) y el guardado
+  se rechaza con un 422 y un mensaje claro, en vez de un 500.
 - **Se guarda en la llamada.** `OutboundCallBuilder` escribe el número usado en
   `calls.meta['caller_id']` y `Call#from_number` de una saliente lo lee de ahí;
   el CSV lo lee de `meta->>'caller_id'`. Una saliente anterior al cambio, sin

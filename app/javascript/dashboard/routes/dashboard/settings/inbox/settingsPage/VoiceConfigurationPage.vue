@@ -80,7 +80,7 @@ export default {
           options.push({
             value: choice.phone_number,
             label: showName
-              ? `${choice.phone_number} (${name})`
+              ? `${choice.phone_number} · ${name}`
               : choice.phone_number,
           });
         });

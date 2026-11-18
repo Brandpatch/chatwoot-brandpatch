@@ -92,7 +92,9 @@ module Custom
         return if voice_caller_id.blank? || voice_caller_id == provider_config_was&.dig('voice_caller_id')
         return if available_voice_caller_ids.any? { |number| number[:phone_number] == voice_caller_id }
 
-        errors.add(:voice_caller_id, 'is not this inbox number or a caller ID verified in its Twilio account')
+        errors.add(:base, 'The outgoing number is not this inbox number or a caller ID verified in its Twilio account')
+      rescue ::Twilio::REST::TwilioError
+        errors.add(:base, 'The outgoing number could not be checked against Twilio. Please try again.')
       end
 
       def provision_twiml_app
