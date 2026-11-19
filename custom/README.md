@@ -883,6 +883,19 @@ POST /twilio/voice/custom/recording_status/:phone   grabación lista
 POST /twilio/voice/custom/amd_status/:phone         veredicto de AMD (dialer)
 ```
 
+`:phone` es la clave del inbox que da `Channel::TwilioSms#voice_webhook_key`:
+los dígitos del número para un inbox de SMS (`18563864418`) y
+`whatsapp-<dígitos>` para uno de WhatsApp (`whatsapp-18479158177`). Un número
+puede tener a la vez un inbox de SMS y uno de WhatsApp, y así no se confunden;
+`set_inbox!` hace el camino inverso. Todas las URLs que se le dan a Twilio o al
+SDK del agente salen de esa clave, nunca de `phone_number` directamente.
+
+Una llamada de WhatsApp entra por el mismo flujo que una de teléfono. Twilio
+manda `From=whatsapp:+<E.164>` (que es el `source_id` del contacto, pero no un
+teléfono) y `CallerName` con el nombre del perfil: el contacto nuevo se crea
+con el teléfono sin el prefijo y ese nombre. Los contactos de WhatsApp ya
+existentes se reutilizan por su `source_id`, con su conversación.
+
 **API del dashboard** (bajo `/api/v1/accounts/:account_id/`):
 
 ```

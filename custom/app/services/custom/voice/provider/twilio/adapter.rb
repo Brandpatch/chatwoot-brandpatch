@@ -60,26 +60,16 @@ module Custom
           private
 
           def call_params(to)
-            phone_digits = @channel.phone_number.delete_prefix('+')
-
             {
               from: @channel.voice_caller_id || @channel.phone_number,
               to: to,
-              url: twilio_call_twiml_url(phone_digits),
-              status_callback: twilio_call_status_url(phone_digits),
+              url: @channel.voice_call_webhook_url,
+              status_callback: @channel.voice_status_webhook_url,
               status_callback_event: %w[
                 initiated ringing answered completed failed busy no-answer canceled
               ],
               status_callback_method: 'POST'
             }
-          end
-
-          def twilio_call_twiml_url(phone_digits)
-            Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: phone_digits)
-          end
-
-          def twilio_call_status_url(phone_digits)
-            Rails.application.routes.url_helpers.custom_twilio_voice_status_url(phone: phone_digits)
           end
 
           def twilio_client

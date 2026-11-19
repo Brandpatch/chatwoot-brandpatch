@@ -218,7 +218,7 @@ module Custom
           Custom::Voice::InboundCallBuilder.perform!(
             inbox: inbox,
             call_sid: twilio_call_sid,
-            caller: { source_ids: [twilio_from], contact_attributes: { name: twilio_from, phone_number: twilio_from } },
+            caller: { source_ids: [twilio_from], contact_attributes: caller_contact_attributes },
             defer_routing: inbox.channel.voice_language_menu_enabled?
           )
         when 'outbound-api', 'outbound-dial'
@@ -226,6 +226,14 @@ module Custom
         else
           raise ArgumentError, "Unsupported Twilio direction: #{twilio_direction}"
         end
+      end
+
+      # A WhatsApp caller arrives as whatsapp:+E164, which is the contact's source
+      # id but not a phone number. WhatsApp also sends the caller's profile name.
+      def caller_contact_attributes
+        phone = twilio_from.delete_prefix('whatsapp:')
+        name = inbox.channel.whatsapp? ? params[:CallerName].presence : nil
+        { name: name || phone, phone_number: phone }
       end
 
       # call_sid is a parameter the browser chooses, so it says which call the
@@ -294,8 +302,7 @@ module Custom
       end
 
       def language_action_url(attempt)
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: phone_digits, attempt: attempt)
+        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: inbox_channel.voice_webhook_key, attempt: attempt)
       end
 
       def conference_twiml(call)
@@ -334,13 +341,11 @@ module Custom
       end
 
       def conference_status_callback_url
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_conference_status_url(phone: phone_digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_conference_status_url(phone: inbox_channel.voice_webhook_key)
       end
 
       def recording_status_callback_url
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_recording_status_url(phone: phone_digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_recording_status_url(phone: inbox_channel.voice_webhook_key)
       end
 
       def find_call_for_conference!(friendly_name, call_sid)
@@ -362,9 +367,10 @@ module Custom
         head :forbidden unless validator.validate(request.original_url, request.POST, signature)
       end
 
+      # The inverse of Channel::TwilioSms#voice_webhook_key.
       def set_inbox!
         digits = params[:phone].to_s.gsub(/\D/, '')
-        phone_number = "+#{digits}"
+        phone_number = params[:phone].to_s.start_with?('whatsapp-') ? "whatsapp:+#{digits}" : "+#{digits}"
         channel = ::Channel::TwilioSms.find_by!(phone_number: phone_number)
         raise ActiveRecord::RecordNotFound, "Voice not enabled for #{phone_number}" unless channel.voice_enabled?
 
