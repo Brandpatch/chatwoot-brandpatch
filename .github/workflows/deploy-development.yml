@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1608-whatsapp-voice-provisioning
 
 jobs:
   build-and-push:
