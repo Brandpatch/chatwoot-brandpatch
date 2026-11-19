@@ -626,6 +626,8 @@ Rails.application.routes.draw do
     post '/twilio/voice/custom/status/:phone',            to: 'custom/twilio/voice#status',            as: :custom_twilio_voice_status
     post '/twilio/voice/custom/conference_status/:phone', to: 'custom/twilio/voice#conference_status', as: :custom_twilio_voice_conference_status
     post '/twilio/voice/custom/recording_status/:phone',  to: 'custom/twilio/voice#recording_status',  as: :custom_twilio_voice_recording_status
+    post '/twilio/voice/custom/spike/call',               to: 'custom/twilio/voice_spike#call_twiml'
+    post '/twilio/voice/custom/spike/status',             to: 'custom/twilio/voice_spike#capture_only'
   end
 
   # ----------------------------------------------------------------------
