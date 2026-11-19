@@ -67,14 +67,18 @@ module Custom
         [{ phone_number: phone_number, friendly_name: phone_number }] + verified.reject { |number| number[:phone_number] == phone_number }
       end
 
+      # What identifies this inbox in the voice webhook URLs. A WhatsApp sender
+      # can share its number with an SMS inbox, so those two get different keys.
+      def voice_webhook_key
+        whatsapp? ? "whatsapp-#{phone_number.delete_prefix('whatsapp:+')}" : phone_number.delete_prefix('+')
+      end
+
       def voice_call_webhook_url
-        digits = phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: voice_webhook_key)
       end
 
       def voice_status_webhook_url
-        digits = phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_status_url(phone: digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_status_url(phone: voice_webhook_key)
       end
 
       def initiate_call(to:, conference_sid: nil, agent_id: nil)

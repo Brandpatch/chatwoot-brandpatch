@@ -17,7 +17,7 @@ module Custom
               account_id: account.id,
               inbox_id: inbox.id,
               phone_number: channel.phone_number,
-              twiml_endpoint: twiml_url,
+              twiml_endpoint: channel.voice_call_webhook_url,
               has_twiml_app: channel.twiml_app_sid.present?
             }
           end
@@ -59,11 +59,6 @@ module Custom
               accountSid: channel.account_sid,
               is_agent: 'true'
             }
-          end
-
-          def twiml_url
-            digits = channel.phone_number.delete_prefix('+')
-            Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: digits)
           end
         end
       end
