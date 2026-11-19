@@ -39,11 +39,11 @@ module Custom
           # which is the common case here since end_conference also runs on calls
           # the provider has torn down on its own.
           def end_provider_leg
-            return if call.provider_call_id.blank?
+            return if call.provider_leg_sid.blank?
 
-            call.inbox.channel.client.calls(call.provider_call_id).update(status: 'completed')
+            call.inbox.channel.client.calls(call.provider_leg_sid).update(status: 'completed')
           rescue ::Twilio::REST::RestError => e
-            Rails.logger.info("VOICE_END_LEG_SKIPPED: call=#{call.id} sid=#{call.provider_call_id} #{e.message}")
+            Rails.logger.info("VOICE_END_LEG_SKIPPED: call=#{call.id} sid=#{call.provider_leg_sid} #{e.message}")
           end
 
           # A click that lands on a call that is already over must not leave a
