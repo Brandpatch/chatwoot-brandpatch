@@ -896,6 +896,34 @@ teléfono) y `CallerName` con el nombre del perfil: el contacto nuevo se crea
 con el teléfono sin el prefijo y ese nombre. Los contactos de WhatsApp ya
 existentes se reutilizan por su `source_id`, con su conversación.
 
+### Encender la voz en un inbox de WhatsApp
+
+Se enciende igual que en uno de SMS: pestaña Voz del inbox, interruptor y
+guardar (`voice_enabled`). Lo que se crea en Twilio lo hace
+`Custom::Twilio::WhatsappVoiceService`, nada a mano:
+
+- **Al encender (`connect!`)**: crea una TwiML App (`voice_url` y
+  `status_callback` con la clave del inbox) y se la asigna al sender de WhatsApp
+  (`POST /v2/Channels/Senders/{XE…}` con `configuration.voice_application_sid`).
+  Esa misma app es la que usa el SDK del agente para entrar a la conferencia.
+- **Al apagar (`disconnect!`)**: desasigna la app del sender, la borra y limpia
+  `twiml_app_sid`.
+- **Sólo se escribe `voice_application_sid`.** El webhook de mensajes del sender
+  no se toca nunca; por eso los mensajes siguen llegando a donde ya llegaban.
+- **Desasignar se hace con `""`, no con `null`**: Twilio lee el `null` como una
+  actualización vacía y responde 400 (código 63100).
+- **Un sender tiene lugar para una sola app de voz**, y una misma cuenta de
+  Twilio puede servir a más de un Chatwoot (dev y producción). Por eso encender
+  no pisa un sender que ya apunta a otra app (falla con el mensaje), y apagar
+  sólo lo desasigna si todavía apunta a la app de este inbox.
+- Si Twilio rechaza la asignación se borra la app recién creada. Si falla al
+  desasignar al apagar, no se borra nada y el inbox conserva su `twiml_app_sid`.
+- El de WhatsApp no pasa por `incoming_phone_numbers`: no hay número que
+  configurar, sólo el sender. Meta se activa aparte, en WhatsApp Manager, y
+  Twilio acepta la asignación aunque Meta todavía no lo tenga encendido.
+- Ajustes: el timbre, la espera máxima y el menú de idioma funcionan como en SMS.
+  El número de salida no aplica: WhatsApp no puede llamar desde un sender +1.
+
 **API del dashboard** (bajo `/api/v1/accounts/:account_id/`):
 
 ```

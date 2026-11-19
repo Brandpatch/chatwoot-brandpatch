@@ -9,6 +9,9 @@ module Custom
             attrs = super
             if channel_type == 'Channel::TwilioSms' && @inbox&.channel&.medium == 'sms'
               attrs += [:ring_timeout_seconds, :max_wait_seconds, :voice_language_menu_enabled, :voice_caller_id]
+            elsif channel_type == 'Channel::TwilioSms' && @inbox&.channel&.medium == 'whatsapp'
+              # Enterprise only opens voice_enabled and the API key to SMS inboxes. No caller id: WhatsApp cannot dial out from a +1 sender.
+              attrs += [:voice_enabled, :api_key_sid, :api_key_secret, :ring_timeout_seconds, :max_wait_seconds, :voice_language_menu_enabled]
             end
             attrs
           end
