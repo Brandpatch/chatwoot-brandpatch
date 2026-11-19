@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - feature/com-1609-whatsapp-inbound-call-voice-flow
 
 jobs:
   build-and-push:
