@@ -105,8 +105,12 @@ module Custom
         return if twiml_app_sid.present?
         return if phone_number.blank?
 
-        validate_voice_capability!
-        self.twiml_app_sid = Custom::Twilio::VoiceWebhookSetupService.new(channel: self).perform
+        if whatsapp?
+          self.twiml_app_sid = Custom::Twilio::WhatsappVoiceService.new(channel: self).connect!
+        else
+          validate_voice_capability!
+          self.twiml_app_sid = Custom::Twilio::VoiceWebhookSetupService.new(channel: self).perform
+        end
       rescue StandardError => e
         Rails.logger.error("TWILIO_VOICE_SETUP_ERROR: #{e.class} #{e.message} phone=#{phone_number} account=#{account_id}")
         errors.add(:base, "Twilio voice setup failed: #{e.message}")
@@ -118,7 +122,11 @@ module Custom
       end
 
       def teardown_voice
-        Custom::Twilio::VoiceTeardownService.new(channel: self).perform
+        if whatsapp?
+          Custom::Twilio::WhatsappVoiceService.new(channel: self).disconnect!
+        else
+          Custom::Twilio::VoiceTeardownService.new(channel: self).perform
+        end
       end
     end
   end
