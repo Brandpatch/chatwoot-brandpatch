@@ -74,6 +74,17 @@ RSpec.describe 'Custom dialer calls API', type: :request do
       expect(response.parsed_body['error']).to eq('inbound_waiting')
     end
 
+    it 'does not stand down for a caller still in the language menu' do
+      conversation = create(:conversation, account: account, inbox: inbox)
+      Custom::Call.create!(account: account, inbox: inbox, conversation: conversation, contact: conversation.contact,
+                           provider: :twilio, direction: :incoming, status: 'ringing', provider_call_id: 'CAmenu',
+                           meta: { 'routing_deferred' => true })
+
+      post url, params: body, headers: admin.create_new_auth_token, as: :json
+
+      expect(response).to have_http_status(:created)
+    end
+
     it 'stands down while the account is paused' do
       account.brandpatch_pause_inbound_calls!
 

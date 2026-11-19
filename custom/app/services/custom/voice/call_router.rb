@@ -100,8 +100,11 @@ module Custom
 
       # Account-wide, like occupancy: a caller queued on any voice inbox is one
       # that any of these agents might be offered.
+      # A caller still in the language menu is not waiting for an agent yet:
+      # nobody can be rung until they pick (see Custom::Call#routing_deferred?).
       def inbound_waiting?
-        Custom::Call.incoming.exists?(account_id: inbox.account_id, status: 'ringing', current_ring_agent_id: nil)
+        Custom::Call.incoming.where(account_id: inbox.account_id, status: 'ringing', current_ring_agent_id: nil)
+                    .exists?(["meta->>'routing_deferred' IS DISTINCT FROM 'true'"])
       end
 
       # Private since the reservation fix: picking without claiming under the

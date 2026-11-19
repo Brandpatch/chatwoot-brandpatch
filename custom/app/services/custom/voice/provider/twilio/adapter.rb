@@ -40,17 +40,17 @@ module Custom
           # to decide: a human is never kept waiting, and a machine is hung up on
           # when the verdict lands (DialerCustomerLeg#record_answered_by!).
           def initiate_dialer_call(to:, dialer_sid:)
-            phone_digits = @channel.phone_number.delete_prefix('+')
+            key = @channel.voice_webhook_key
             url_helpers = Rails.application.routes.url_helpers
 
             params = call_params(to)
             call = twilio_client.calls.create(
               **params,
-              url: url_helpers.custom_twilio_voice_call_url(phone: phone_digits, dialer_sid: dialer_sid),
-              status_callback: url_helpers.custom_twilio_voice_status_url(phone: phone_digits, dialer_sid: dialer_sid),
+              url: url_helpers.custom_twilio_voice_call_url(phone: key, dialer_sid: dialer_sid),
+              status_callback: url_helpers.custom_twilio_voice_status_url(phone: key, dialer_sid: dialer_sid),
               machine_detection: 'Enable',
               async_amd: 'true',
-              async_amd_status_callback: url_helpers.custom_twilio_voice_amd_status_url(phone: phone_digits, dialer_sid: dialer_sid),
+              async_amd_status_callback: url_helpers.custom_twilio_voice_amd_status_url(phone: key, dialer_sid: dialer_sid),
               async_amd_status_callback_method: 'POST'
             )
 
