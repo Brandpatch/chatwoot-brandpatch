@@ -10,11 +10,13 @@ module Custom
           end
 
           def initiate_call(to:, conference_sid: nil, agent_id: nil)
-            call = twilio_client.calls.create(**call_params(to))
+            params = call_params(to)
+            call = twilio_client.calls.create(**params)
 
             {
               provider: 'twilio',
               call_sid: call.sid,
+              caller_id: params[:from],
               status: call.status,
               call_direction: 'outbound',
               requires_agent_join: true,
@@ -23,7 +25,9 @@ module Custom
             }
           end
 
-          # The auto-dialer's customer leg. Two differences from initiate_call:
+          # The auto-dialer's customer leg. Returns the SID and the number it was
+          # placed from, which is the inbox's caller ID as for a manual call.
+          # Two differences from initiate_call:
           #
           # Every URL carries the call's placeholder SID back as dialer_sid,
           # because the row was created before Twilio had a SID to give it and
@@ -39,15 +43,18 @@ module Custom
             phone_digits = @channel.phone_number.delete_prefix('+')
             url_helpers = Rails.application.routes.url_helpers
 
-            twilio_client.calls.create(
-              **call_params(to),
+            params = call_params(to)
+            call = twilio_client.calls.create(
+              **params,
               url: url_helpers.custom_twilio_voice_call_url(phone: phone_digits, dialer_sid: dialer_sid),
               status_callback: url_helpers.custom_twilio_voice_status_url(phone: phone_digits, dialer_sid: dialer_sid),
               machine_detection: 'Enable',
               async_amd: 'true',
               async_amd_status_callback: url_helpers.custom_twilio_voice_amd_status_url(phone: phone_digits, dialer_sid: dialer_sid),
               async_amd_status_callback_method: 'POST'
-            ).sid
+            )
+
+            { call_sid: call.sid, caller_id: params[:from] }
           end
 
           private
@@ -56,7 +63,7 @@ module Custom
             phone_digits = @channel.phone_number.delete_prefix('+')
 
             {
-              from: @channel.phone_number,
+              from: @channel.voice_caller_id || @channel.phone_number,
               to: to,
               url: twilio_call_twiml_url(phone_digits),
               status_callback: twilio_call_status_url(phone_digits),

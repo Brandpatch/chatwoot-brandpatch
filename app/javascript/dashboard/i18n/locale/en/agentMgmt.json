@@ -40,6 +40,12 @@
           "LABEL": "Email Address",
           "PLACEHOLDER": "Please enter an email address of the agent"
         },
+        "VOICE_LANGUAGES": {
+          "LABEL": "Voice languages",
+          "HINT": "Languages this agent speaks, for voice call routing",
+          "ES": "Spanish",
+          "EN": "English"
+        },
         "SUBMIT": "Add Agent"
       },
       "API": {
@@ -76,6 +82,12 @@
         "EMAIL": {
           "LABEL": "Email Address",
           "PLACEHOLDER": "Please enter an email address of the agent"
+        },
+        "VOICE_LANGUAGES": {
+          "LABEL": "Voice languages",
+          "HINT": "Languages this agent speaks, for voice call routing",
+          "ES": "Spanish",
+          "EN": "English"
         },
         "AGENT_AVAILABILITY": {
           "LABEL": "Availability",

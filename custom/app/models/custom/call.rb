@@ -63,7 +63,8 @@ module Custom
 
     store_accessor :meta, :conference_sid, :twilio_conference_sid, :recording_sid,
                    :parent_call_sid, :initiated_at, :ended_at, :accepted_broadcast_at,
-                   :conversation_created, :failure_reason, :provider_error_code, :dialer
+                   :conversation_created, :failure_reason, :provider_error_code, :routing_deferred, :language, :caller_id,
+                   :dialer
 
     enum :provider, { twilio: 0, whatsapp: 1 }
     enum :direction, { incoming: 0, outgoing: 1 }
@@ -175,6 +176,19 @@ module Custom
     def display_status = status.to_s.tr('_', '-')
     def direction_label = DISPLAY_DIRECTION[direction]
 
+    # True only while this call is sitting in the voice IVR's language menu
+    # (T4), waiting on a digit before anyone gets rung. Set by
+    # InboundCallBuilder when it defers routing, and cleared by
+    # InboundCallBuilder.continue_routing! once the caller picks a language —
+    # never by anything that merely finds no agent to ring, which is a
+    # resolved, legitimate wait and not this.
+    #
+    # Deliberately NOT "language is absent from meta": every call made before
+    # T4 existed, and every call on an inbox with the menu off, also lacks a
+    # language forever — that would exclude them from Conference::Manager's
+    # pickup query for good instead of just while this call is in the menu.
+    def routing_deferred? = ActiveModel::Type::Boolean.new.cast(routing_deferred)
+
     # The row-level twin of ANSWERED_SQL, for a record already in memory. Kept
     # next to it on purpose: a scope filters with the SQL and anything holding
     # a call asks this, so the two have to say the same thing.
@@ -204,13 +218,19 @@ module Custom
     #
     # Outbound never reaches the missed branch: it always carries the agent who
     # dialled it.
-    def display_kind
-      return 'ongoing' unless terminal?
-      return 'failed' if status == 'failed'
-      return incoming? ? 'missed' : 'no_reply' if status == 'no_answer'
-      return 'missed' if incoming? && !answered?
+    def display_kind = self.class.kind_for(status: status, direction: direction, accepted_by_agent_id: accepted_by_agent_id)
 
-      incoming? ? 'incoming' : 'outgoing'
+    # The same answer from the three columns that decide it, so the CSV export
+    # can label thousands of rows without building a Call for each. Answered is
+    # the definition of #answered? and ANSWERED_SQL, written out.
+    def self.kind_for(status:, direction:, accepted_by_agent_id:)
+      incoming = direction == 'incoming'
+      return 'ongoing' unless TERMINAL_STATUSES.include?(status)
+      return 'failed' if status == 'failed'
+      return incoming ? 'missed' : 'no_reply' if status == 'no_answer'
+      return 'missed' if incoming && !(accepted_by_agent_id.present? && status != 'rejected')
+
+      incoming ? 'incoming' : 'outgoing'
     end
 
     def broadcast_voice_call_event(event, **extra)
@@ -229,6 +249,14 @@ module Custom
                 conversation_id: conversation.display_id, account_id: account_id,
                 inbox_id: inbox_id,
                 current_ring_agent_id: current_ring_agent_id,
+                # Set once the caller picks a language (T4) and nil before
+                # that. ring_reassigned is what actually tells the chosen
+                # agent's browser to ring for a call that went through the
+                # menu — the eligible agent is only known after the language
+                # is, so by the time this fires the call always has one if
+                # it is ever going to. See T7: the widget has to show this
+                # before the agent answers, not after.
+                language: language,
                 # Who is calling, on every event. Without it the ring event
                 # carries no identity at all, and the dashboard has nothing to
                 # show until the call's message arrives over a separate
@@ -241,7 +269,10 @@ module Custom
       }
     end
 
-    def from_number = incoming? ? contact.phone_number : inbox.channel&.phone_number
+    # On an outbound call, the number the customer saw, which is the inbox's own
+    # unless the inbox was set to call out with another. The call keeps it
+    # because the inbox's setting can change afterwards.
+    def from_number = incoming? ? contact.phone_number : (caller_id.presence || inbox.channel&.phone_number)
     def to_number   = incoming? ? inbox.channel&.phone_number : contact.phone_number
 
     def recording_url
@@ -266,6 +297,7 @@ module Custom
         provider: provider,
         direction: direction,
         status: display_status,
+        language: language,
         duration_seconds: duration_seconds,
         end_reason: end_reason,
         failure_reason: failure_reason,

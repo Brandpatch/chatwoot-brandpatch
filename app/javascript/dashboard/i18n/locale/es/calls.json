@@ -7,6 +7,10 @@
     "DOWNLOAD": "Descargar CSV",
     "DOWNLOAD_FAILED": "No se pudo descargar las llamadas",
     "DOWNLOAD_PERIOD_LIMIT": "El archivo cubre como máximo {days} días. Elegí un período más corto.",
+    "LANGUAGE": {
+      "ES": "Español",
+      "EN": "Inglés"
+    },
     "SETUP": {
       "TITLE": "Haz y recibe llamadas en un solo lugar",
       "SUBTITLE": "Configura un canal de voz para empezar a gestionar llamadas con tu equipo. Todas las llamadas, junto con sus grabaciones, aparecerán aquí.",

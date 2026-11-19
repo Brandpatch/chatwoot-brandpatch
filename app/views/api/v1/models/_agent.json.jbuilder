@@ -13,3 +13,4 @@ json.role resource.role
 json.thumbnail resource.avatar_url
 json.custom_role_id resource.current_account_user&.custom_role_id if ChatwootApp.enterprise?
 json.brandpatch_custom_role_id resource.current_account_user&.brandpatch_custom_role_id if ChatwootApp.custom?
+json.brandpatch_voice_languages resource.current_account_user&.brandpatch_voice_languages if ChatwootApp.custom?

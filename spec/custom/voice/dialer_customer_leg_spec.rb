@@ -46,6 +46,7 @@ RSpec.describe Custom::Voice::DialerCustomerLeg do
       expect(call.reload.provider_call_id).to eq('dialer-abc')
       expect(call.dialer).to include('phase' => 'dialing', 'customer_call_sid' => 'CAcustomer')
       expect(call.provider_leg_sid).to eq('CAcustomer')
+      expect(call.from_number).to eq(channel.phone_number)
       expect(call.status).to eq('ringing')
     end
 

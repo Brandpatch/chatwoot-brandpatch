@@ -181,8 +181,14 @@ module Custom
           # of nobody reaching the conference at all, 11,2% against 3,9%.
           #
           # An outbound call already has its agent: whoever placed it.
+          #
+          # routing_deferred excludes a call still sitting in the voice IVR's
+          # language menu (T3): it also has no ring agent yet, but offering it
+          # here would ring it before the caller even finished picking a
+          # language. See Custom::Call#routing_deferred?.
           Custom::Call
             .where(inbox_id: call.inbox_id, direction: :incoming, status: 'ringing', current_ring_agent_id: nil)
+            .where("meta->>'routing_deferred' IS DISTINCT FROM 'true'")
             .where.not(id: call.id)
             .order(created_at: :asc)
             .each { |waiting| assign_waiting_call!(waiting) }
@@ -194,7 +200,7 @@ module Custom
         def assign_waiting_call!(waiting)
           rang_ids = Array(waiting.meta['rang_agent_ids']).map(&:to_i)
           agent = Custom::Voice::CallRouter
-                  .new(inbox: waiting.inbox, exclude_agent_ids: rang_ids)
+                  .new(inbox: waiting.inbox, exclude_agent_ids: rang_ids, language: waiting.language)
                   .reserve_for!(waiting)
           return unless agent
 

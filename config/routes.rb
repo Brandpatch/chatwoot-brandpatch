@@ -611,6 +611,7 @@ Rails.application.routes.draw do
                   get :token, on: :member
                 end
                 resources :dialer_calls, only: [:create], controller: 'dialer_calls'
+                resources :voice_caller_ids, only: [:index], controller: 'voice_caller_ids'
               end
               resources :dialer_calls, only: [:index], controller: 'dialer_calls'
               resources :contacts, only: [] do
@@ -623,6 +624,7 @@ Rails.application.routes.draw do
     end
 
     post '/twilio/voice/custom/call/:phone',              to: 'custom/twilio/voice#call_twiml',        as: :custom_twilio_voice_call
+    post '/twilio/voice/custom/language/:phone',          to: 'custom/twilio/voice#language',          as: :custom_twilio_voice_language
     post '/twilio/voice/custom/status/:phone',            to: 'custom/twilio/voice#status',            as: :custom_twilio_voice_status
     post '/twilio/voice/custom/conference_status/:phone', to: 'custom/twilio/voice#conference_status', as: :custom_twilio_voice_conference_status
     post '/twilio/voice/custom/recording_status/:phone',  to: 'custom/twilio/voice#recording_status',  as: :custom_twilio_voice_recording_status

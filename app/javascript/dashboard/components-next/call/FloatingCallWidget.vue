@@ -1,5 +1,12 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
@@ -548,7 +555,9 @@ onBeforeUnmount(() => {
         @reject="rejectIncomingCall(primaryIncomingCall)"
         @end="handleEndCall"
         @toggle-mute="toggleMute"
-        @go-to-conversation="goToConversation(activeCall || primaryIncomingCall)"
+        @go-to-conversation="
+          goToConversation(activeCall || primaryIncomingCall)
+        "
       />
     </div>
   </div>

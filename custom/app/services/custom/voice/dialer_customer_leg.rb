@@ -28,8 +28,12 @@ module Custom
         return unless claim_dial!
 
         adapter = Custom::Voice::Provider::Twilio::Adapter.new(call.inbox.channel)
-        sid = adapter.initiate_dialer_call(to: call.contact.phone_number, dialer_sid: call.provider_call_id)
-        call.merge_dialer!('customer_call_sid' => sid, 'dialed_at' => Time.zone.now.to_i)
+        result = adapter.initiate_dialer_call(to: call.contact.phone_number, dialer_sid: call.provider_call_id)
+        # caller_id is what Call#from_number and the calls CSV read for an outgoing call.
+        call.with_lock do
+          call.update!(caller_id: result[:caller_id],
+                       dialer: call.dialer.merge('customer_call_sid' => result[:call_sid], 'dialed_at' => Time.zone.now.to_i))
+        end
       rescue ::Twilio::REST::RestError => e
         fail_dial!(e)
       end

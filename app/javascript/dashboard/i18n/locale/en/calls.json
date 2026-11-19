@@ -7,6 +7,10 @@
     "DOWNLOAD": "Download CSV",
     "DOWNLOAD_FAILED": "Could not download the calls",
     "DOWNLOAD_PERIOD_LIMIT": "The file covers at most {days} days. Pick a shorter period.",
+    "LANGUAGE": {
+      "ES": "Spanish",
+      "EN": "English"
+    },
     "MY_METRICS": {
       "ANSWERED": {
         "LABEL": "Answered",

@@ -65,7 +65,9 @@ module Custom
       end
 
       def initiate_call!
-        inbox.channel.initiate_call(to: contact.phone_number)[:call_sid]
+        result = inbox.channel.initiate_call(to: contact.phone_number)
+        @caller_id = result[:caller_id]
+        result[:call_sid]
       end
 
       def create_call!(conversation, call_sid)
@@ -79,7 +81,7 @@ module Custom
           direction: :outgoing,
           status: 'ringing',
           provider_call_id: call_sid,
-          meta: { 'initiated_at' => Time.zone.now.to_i, 'dialer' => @dialer }.compact
+          meta: { 'initiated_at' => Time.zone.now.to_i, 'caller_id' => @caller_id, 'dialer' => @dialer }.compact
         )
         call.update!(conference_sid: call.default_conference_sid)
         call

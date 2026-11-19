@@ -449,7 +449,9 @@ carga el esquema y después migra— pero no sirve como referencia; mirar la bas
    a `/twilio/voice/custom/call/<numero>`.
 2. `Custom::Twilio::VoiceController#call_twiml` valida la firma de Twilio,
    resuelve o crea la llamada con `InboundCallBuilder` y devuelve el TwiML que
-   mete al cliente en una conferencia.
+   mete al cliente en una conferencia. En una bandeja con el menú de idioma
+   encendido devuelve antes el menú, y el paso 3 espera a que el cliente elija
+   (ver "Menú de idioma de las entrantes").
 3. `CallRouter` elige el primer agente y se abre su turno en
    `call_ring_attempts`. Se arma `CallRingTimeoutJob` con el timeout del inbox.
 4. El agente ve el widget flotante y contesta. El navegador se conecta por el
@@ -487,6 +489,50 @@ que llega**: el resto rebota contra `return if
 TERMINAL_STATUSES.include?(call.status)`. Tenerlo presente antes de tocar
 cualquier cosa que escriba el estado — un bug real salió de ahí, con dos
 escritores separados por menos de 200 ms.
+
+### Menú de idioma de las entrantes
+
+Antes de sonarle a un agente, la llamada puede preguntarle al cliente su idioma
+("Para español, marque 1. For English, press 2.") y enrutarse a agentes que lo
+hablen. Es un interruptor por bandeja, `voice_language_menu_enabled` en
+`provider_config` (Ajustes → Voz, "Preguntar idioma a quien llama"), apagado
+por defecto: sin él la entrante va directo al paso 3 de arriba.
+
+**Cómo corre.**
+
+1. `call_twiml` crea la llamada con `defer_routing: true`. `InboundCallBuilder`
+   no elige agente todavía y deja `meta['routing_deferred']` en `true`.
+2. `show_language_menu?` (entrante, no es la pata de un agente y
+   `routing_deferred?`) devuelve el menú: un `<Gather>` de una tecla con
+   `LANGUAGE_GATHER_TIMEOUT` de 3 s y `action_on_empty_result`, así que Twilio
+   llama a `/twilio/voice/custom/language/:phone` exactamente una vez por
+   intento, haya habido tecla, silencio o una tecla inválida.
+3. `VoiceController#language`: 1 es español y 2 inglés. Cualquier otra cosa
+   repite el menú una vez (con "Opción no válida" si hubo una tecla). Hay
+   `LANGUAGE_MAX_ATTEMPTS` = 2 intentos en total, compartidos entre silencio y
+   tecla inválida, y el segundo fallo cae a español.
+4. `finish_language_menu!` guarda el idioma en `meta['language']` y llama a
+   `InboundCallBuilder.continue_routing!`: ahí se elige el agente, se apaga
+   `routing_deferred` y se arma el timeout de timbre. `CallRouter` prefiere a los
+   agentes con ese idioma en su perfil (`brandpatch_voice_languages`) y, si no
+   hay ninguno disponible, cae a cualquiera.
+
+**`routing_deferred` es una marca propia y no "no hay idioma todavía".** Una
+llamada de una bandeja sin menú tampoco tiene nunca idioma, y quedaría excluida
+para siempre. La marca se enciende al crear la llamada y se apaga exactamente
+cuando se enruta. Mientras está encendida, `Conference::Manager#assign_waiting_calls!`
+deja la llamada en paz: ofrecérsela a un agente sería sonarle antes de que el
+cliente termine de elegir idioma.
+
+**Si el cliente cuelga durante el menú.** Twilio igual llama a `#language`, con
+`CallStatus=completed`. En ese caso no se guarda idioma, no se enruta y no le
+suena a nadie: la llamada la cierra el callback de estado de Twilio o, si no
+llegó, `LanguageMenuTimeoutJob` a los 30 s, que existe para eso. La llamada queda
+con `routing_deferred` en `true`, sin idioma y sin turnos de timbre, y el CSV la
+muestra con el motivo "Caller hung up in the language menu". (Antes de este
+arreglo, COM-1637, se enrutaba igual: a un agente le sonaba unos 0-2 s una llamada
+muerta y la llamada quedaba con idioma español sin que el cliente lo hubiera
+elegido. Esas llamadas viejas siguen así en la base.)
 
 ### Enrutamiento, escalación y cola
 
@@ -677,6 +723,43 @@ también entra primero: `started_at` lo pone sólo el `answered` de la pata del
 cliente, y `display_kind` da `no_reply` si no contestó, `failed` si no se llegó a
 marcar y `outgoing` si conectó. Un contestador que atendió también conecta y
 sale `outgoing`, igual que en una manual; `answered_by` es lo que lo distingue.
+### Número que ve el cliente al llamar (caller ID de salida)
+
+Por defecto una saliente sale con el número de la bandeja. Una bandeja puede
+usar otro: `voice_caller_id`, guardado en `provider_config` (no es columna,
+igual que `voice_language_menu_enabled`) y vacío por defecto, que significa "el
+número de la bandeja". Se configura en Ajustes → Voz de la bandeja
+(`VoiceConfigurationPage.vue`).
+
+- **Un solo escritor.** `Provider::Twilio::Adapter#call_params` es el único
+  lugar que fija el `from` (`voice_caller_id || phone_number`). Las URLs de
+  TwiML y de estado siguen yendo por el número propio de la bandeja, así que
+  cambiar el `from` no toca el enrutamiento ni los webhooks.
+- **Se valida al guardar**, y sólo cuando el valor cambia: tiene que ser el
+  número de la bandeja o un caller ID verificado en la cuenta de Twilio de esa
+  bandeja (`outgoing_caller_ids`). Si no, Twilio rechaza la llamada con 21210
+  recién al marcar, que es el peor momento para enterarse. Si Twilio falla
+  *durante el guardado*, la validación lo atrapa (`TwilioError`) y el guardado
+  se rechaza con un 422 y un mensaje claro, en vez de un 500.
+- **Se guarda en la llamada.** `OutboundCallBuilder` escribe el número usado en
+  `calls.meta['caller_id']` y `Call#from_number` de una saliente lo lee de ahí;
+  el CSV lo lee de `meta->>'caller_id'`. Una saliente anterior al cambio, sin
+  ese dato, sigue mostrando el número de la bandeja.
+- **Endpoint**, sólo administradores: `GET
+  /custom/api/v1/accounts/:account_id/inboxes/:inbox_id/voice_caller_ids`
+  devuelve `{ payload: [{ phone_number, friendly_name }] }` con el número
+  propio primero. Una bandeja sin voz responde 422 sin consultar Twilio; un
+  error de Twilio responde 502 con su mensaje, nunca una lista vacía.
+
+**Lo que esto no resuelve:** un caller ID verificado es sólo para *salir*.
+Las llamadas que el cliente devuelva a ese número llegan a Chatwoot sólo si el
+operador del número las desvía a un número Twilio de la misma cuenta; entonces
+entran como una entrante normal, con el cliente como `From` y el número desviado
+en `ForwardedFrom` (en producción AT&T ya desvía así). Sin desvío caen en el
+operador. Los SMS a ese número no llegan a Chatwoot en ningún caso. Además, la
+atestación SHAKEN/STIR de un caller ID verificado es B como máximo; para A el
+número tiene que estar en Twilio. Portarlo es la solución definitiva; esto es
+el puente.
 
 ### Aprovisionamiento en Twilio
 
@@ -755,6 +838,7 @@ del número, para las **entrantes**. Se necesitan las dos.
 | `custom/app/views/custom/api/v1/accounts/dialer_calls/index.json.jbuilder` | Resultados del dialer |
 | `custom/app/services/custom/voice/dialer_call_builder.rb` | Reserva agente y arma contacto, conversación, llamada y nota |
 | `custom/app/services/custom/voice/dialer_customer_leg.rb` | Marca al cliente cuando entra el agente y corta a los contestadores |
+| `custom/app/jobs/custom/voice/language_menu_timeout_job.rb` | Cierra a los 30 s una llamada que sigue en el menú de idioma (el cliente colgó ahí) |
 | `custom/app/jobs/custom/voice/provider/twilio/recording_attachment_job.rb` | Adjunta la grabación en segundo plano (cola `low`) |
 | `custom/app/views/custom/api/v1/accounts/calls/index.json.jbuilder` | Listado de llamadas |
 | `custom/app/views/custom/api/v1/models/_call.json.jbuilder` | Serialización de una llamada |
@@ -833,6 +917,20 @@ empiece con `=`, `+`, `-` o `@` se ejecuta como fórmula al abrir el archivo en
 Excel. `CSVSafe` (gema `csv-safe`) es lo que usan todas las exportaciones de la
 app contra eso. Lleva todas las columnas del builder, no sólo las del bloque
 visible, y números crudos en vez de las cadenas formateadas de la pantalla.
+
+**Motivo y enlace (COM-1394).** Las dos últimas columnas son el motivo de una
+llamada perdida y el enlace a su conversación. El motivo sale de los turnos de
+timbre (`Custom::Voice::CallsCsvRows#missed_reason_for`), en este orden: sin
+ningún turno → "sin agentes disponibles" (nadie en línea y libre, o la cuenta
+en pausa; la llamada no guarda cuál de las dos); algún `timeout` → "el agente
+no contestó"; algún `rejected` → "rechazada por el agente"; si no, "el cliente
+colgó mientras sonaba". En producción, de 1.134 perdidas entrantes en 30 días: 500, 71 y 563
+(esas 563, con mediana de 4 s, son el motivo más grande y nadie lo había
+pedido). La columna Agente de una perdida nombra solo a quienes se les carga
+la pérdida (`MISSED_OUTCOMES`), nunca al que dejó de sonarle porque el cliente
+colgó: así el archivo y el informe por agente no se contradicen. Aun así **no
+cuadran en cantidades** — el informe cuenta turnos y el archivo cuenta
+llamadas no atendidas.
 
 Y uno aparte, bajo `/custom/api/v1/accounts/:account_id/`:
 

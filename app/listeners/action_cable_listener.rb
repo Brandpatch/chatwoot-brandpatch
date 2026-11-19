@@ -83,6 +83,15 @@ class ActionCableListener < BaseListener
     broadcast(account, tokens, CONVERSATION_STATUS_CHANGED, conversation.push_event_data)
   end
 
+  # Only a bot can hand a conversation over, which is what tells the dashboard
+  # this was a handoff and not somebody reopening a pending conversation.
+  def conversation_bot_handoff(event)
+    conversation, account = extract_conversation_and_account(event)
+    tokens = user_tokens(account, conversation.inbox.members)
+
+    broadcast(account, tokens, CONVERSATION_BOT_HANDOFF, conversation.push_event_data)
+  end
+
   def conversation_updated(event)
     conversation, account = extract_conversation_and_account(event)
     tokens = user_tokens(account, conversation.inbox.members) + contact_inbox_tokens(conversation.contact_inbox)
