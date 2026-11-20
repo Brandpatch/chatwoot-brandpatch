@@ -278,6 +278,8 @@ es:
   conversations:
     captain:
       handoff: 'Transferring to another agent for further assistance.'
+    voice:
+      language_menu_hangup_note: 'El cliente colgó durante el menú de idioma antes de ser atendido. Devolver la llamada.'
     messages:
       instagram_story_content: '%{story_sender} te mencionó en la historia: '
       instagram_deleted_story_content: Esta historia ya no está disponible.

@@ -17,7 +17,10 @@ import {
 import { useCallActions } from 'dashboard/composables/useCallSession';
 import { useWhatsappCallSession } from 'dashboard/composables/useWhatsappCallSession';
 import { useCallsStore } from 'dashboard/stores/calls';
-import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
+import {
+  isOutboundVoiceCallEnabled,
+  VOICE_CALL_PROVIDERS,
+} from 'dashboard/helper/inbox';
 import { formatDuration } from 'shared/helpers/timeHelper';
 import { useAlert } from 'dashboard/composables';
 
@@ -343,11 +346,14 @@ const handleJoinCall = async () => {
   });
 };
 
+const inbox = computed(() => store.getters['inboxes/getInbox'](inboxId.value));
+
 const canCallBack = computed(
   () =>
     isMissedInbound.value &&
     !!inboxId.value &&
     !!conversationId.value &&
+    isOutboundVoiceCallEnabled(inbox.value) &&
     !hasActiveCall.value &&
     !callsStore.hasIncomingCall
 );

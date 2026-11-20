@@ -55,6 +55,15 @@ export const getVoiceCallProvider = inbox => {
 
 export const isVoiceCallEnabled = inbox => getVoiceCallProvider(inbox) !== null;
 
+// A Twilio WhatsApp inbox only receives calls: WhatsApp does not allow placing
+// them to US numbers, so no outgoing call is offered from it.
+export const isOutboundVoiceCallEnabled = inbox =>
+  isVoiceCallEnabled(inbox) &&
+  !(
+    (inbox.channel_type || inbox.channelType) === INBOX_TYPES.TWILIO &&
+    inbox.medium === 'whatsapp'
+  );
+
 // Combined channel + voice-wave badge glyph per voice-call provider.
 export const VOICE_CALL_ICONS = {
   [VOICE_CALL_PROVIDERS.WHATSAPP]: 'i-woot-whatsapp-voice',

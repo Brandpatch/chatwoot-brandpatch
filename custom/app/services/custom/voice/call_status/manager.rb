@@ -21,6 +21,7 @@ module Custom
           close_open_ring_attempt! if Custom::Call::TERMINAL_STATUSES.include?(status)
           call.conversation.update!(last_activity_at: Time.zone.now)
           call.message&.touch # rubocop:disable Rails/SkipsModelValidations
+          Custom::Voice::LanguageMenuHangupFollowUp.new(call: call).perform
         end
 
         private
