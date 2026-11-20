@@ -667,7 +667,8 @@
     "VOICE_CONFIGURATION": {
       "ENABLE_VOICE": {
         "LABEL": "Habilitar llamadas de voz",
-        "DESCRIPTION": "Activar llamadas de voz en esta bandeja de entrada. Los agentes podrán hacer y recibir llamadas telefónicas."
+        "DESCRIPTION": "Activar llamadas de voz en esta bandeja de entrada. Los agentes podrán hacer y recibir llamadas telefónicas.",
+        "WHATSAPP_DESCRIPTION": "Permite que los clientes llamen a este número de WhatsApp y que los agentes atiendan desde Chatwoot. Activa esto primero y luego habilita las llamadas del número en WhatsApp Manager (Meta), que es donde se activa el ícono de llamada que ven los clientes. Para dejar de recibir llamadas, desactiva primero las llamadas en WhatsApp Manager y después apaga esto. Las llamadas salientes no están disponibles para números de Estados Unidos."
       },
       "CREDENTIALS": {
         "DESCRIPTION": "Llamada de voz requiere credenciales de Clave de Twilio API. Estas se utilizan para generar tokens para las conexiones de voz del agente."
