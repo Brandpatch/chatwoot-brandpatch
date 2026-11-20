@@ -89,7 +89,7 @@ module Custom
           raise DialerUnavailable, 'paused' if inbox.account.brandpatch_inbound_calls_paused?
           raise DialerUnavailable, 'inbound_waiting' if inbound_waiting?
 
-          agents = eligible_agents
+          agents = eligible_agents.where.not(id: agents_in_wrap_up_ids)
           raise DialerUnavailable, 'no_agent_available' if agents.empty?
 
           yield round_robin_pick(agents)
@@ -97,6 +97,18 @@ module Custom
       end
 
       private
+
+      # The dialer would otherwise hand an agent the next lead the moment their
+      # last call ends: a run of voicemails, each hung up within seconds, kept
+      # agents joining call after call with no time to note or breathe. Only the
+      # dialer waits; an inbound caller is still offered to them straight away.
+      DIALER_WRAP_UP = 20.seconds
+
+      def agents_in_wrap_up_ids
+        Custom::Call.where(account_id: inbox.account_id).where.not(accepted_by_agent_id: nil)
+                    .where("(meta->>'ended_at')::bigint > ?", DIALER_WRAP_UP.ago.to_i)
+                    .distinct.pluck(:accepted_by_agent_id)
+      end
 
       # Account-wide, like occupancy: a caller queued on any voice inbox is one
       # that any of these agents might be offered.
