@@ -93,6 +93,20 @@ RSpec.describe 'Custom dialer calls API', type: :request do
       expect(response.parsed_body['error']).to eq('paused')
     end
 
+    it 'gives an agent a short wrap-up after their last call before reserving them again' do
+      conversation = create(:conversation, account: account, inbox: inbox)
+      finished = Custom::Call.create!(account: account, inbox: inbox, conversation: conversation, contact: conversation.contact,
+                                      provider: :twilio, direction: :outgoing, status: 'completed', accepted_by_agent: agent,
+                                      provider_call_id: 'CAfinished', meta: { 'ended_at' => 5.seconds.ago.to_i })
+
+      post url, params: body, headers: admin.create_new_auth_token, as: :json
+      expect(response.parsed_body['error']).to eq('no_agent_available')
+
+      finished.update!(meta: finished.meta.merge('ended_at' => 30.seconds.ago.to_i))
+      post url, params: body, headers: admin.create_new_auth_token, as: :json
+      expect(response).to have_http_status(:created)
+    end
+
     it 'skips agents who are offline' do
       online[agent.id.to_s] = 'offline'
 
