@@ -111,7 +111,7 @@ module Custom
         return if agents.empty?
 
         last_given_at = Custom::Call.where(account_id: inbox.account_id)
-                                    .where.not("calls.meta->>'follow_up_agent_id'" => nil)
+                                    .where("calls.meta->>'follow_up_agent_id' IS NOT NULL")
                                     .group(Arel.sql("calls.meta->>'follow_up_agent_id'")).maximum(:created_at)
         agents.min_by { |agent| last_given_at[agent.id.to_s] || Time.zone.at(0) }
       end
