@@ -67,14 +67,18 @@ module Custom
         [{ phone_number: phone_number, friendly_name: phone_number }] + verified.reject { |number| number[:phone_number] == phone_number }
       end
 
+      # What identifies this inbox in the voice webhook URLs. A WhatsApp sender
+      # can share its number with an SMS inbox, so those two get different keys.
+      def voice_webhook_key
+        whatsapp? ? "whatsapp-#{phone_number.delete_prefix('whatsapp:+')}" : phone_number.delete_prefix('+')
+      end
+
       def voice_call_webhook_url
-        digits = phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_call_url(phone: voice_webhook_key)
       end
 
       def voice_status_webhook_url
-        digits = phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_status_url(phone: digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_status_url(phone: voice_webhook_key)
       end
 
       def initiate_call(to:, conference_sid: nil, agent_id: nil)
@@ -101,8 +105,12 @@ module Custom
         return if twiml_app_sid.present?
         return if phone_number.blank?
 
-        validate_voice_capability!
-        self.twiml_app_sid = Custom::Twilio::VoiceWebhookSetupService.new(channel: self).perform
+        if whatsapp?
+          self.twiml_app_sid = Custom::Twilio::WhatsappVoiceService.new(channel: self).connect!
+        else
+          validate_voice_capability!
+          self.twiml_app_sid = Custom::Twilio::VoiceWebhookSetupService.new(channel: self).perform
+        end
       rescue StandardError => e
         Rails.logger.error("TWILIO_VOICE_SETUP_ERROR: #{e.class} #{e.message} phone=#{phone_number} account=#{account_id}")
         errors.add(:base, "Twilio voice setup failed: #{e.message}")
@@ -114,7 +122,11 @@ module Custom
       end
 
       def teardown_voice
-        Custom::Twilio::VoiceTeardownService.new(channel: self).perform
+        if whatsapp?
+          Custom::Twilio::WhatsappVoiceService.new(channel: self).disconnect!
+        else
+          Custom::Twilio::VoiceTeardownService.new(channel: self).perform
+        end
       end
     end
   end

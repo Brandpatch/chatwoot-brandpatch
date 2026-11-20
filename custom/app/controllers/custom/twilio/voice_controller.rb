@@ -45,7 +45,7 @@ module Custom
         return render xml: reject_twiml if reject_inbound?
 
         call = resolve_call
-        return render xml: hangup_twiml if joining_a_dead_call?(call)
+        return render xml: hangup_twiml if call.nil? || joining_a_dead_call?(call)
         return render xml: language_menu_twiml(attempt: 1) if show_language_menu?(call)
 
         render xml: conference_twiml(call)
@@ -107,10 +107,22 @@ module Custom
         head :no_content
       end
 
+      # Async answering machine detection on an auto-dialer customer leg. See
+      # Custom::Voice::DialerCustomerLeg#record_answered_by!.
+      def amd_status
+        call = inbox_calls.find_by!(provider_call_id: twilio_call_sid)
+        Custom::Voice::DialerCustomerLeg.new(call: call).record_answered_by!(params[:AnsweredBy].to_s)
+        head :no_content
+      end
+
       private
 
+      # An auto-dialer customer leg reports under a SID the call row does not
+      # hold — the row was created before the leg existed — so its URLs carry
+      # the row's own placeholder back as dialer_sid (Adapter#initiate_dialer_call).
+      # The query string is part of what Twilio signs, so it cannot be forged.
       def twilio_call_sid
-        params[:CallSid]
+        params[:dialer_sid].presence || params[:CallSid]
       end
 
       def twilio_from
@@ -206,7 +218,7 @@ module Custom
           Custom::Voice::InboundCallBuilder.perform!(
             inbox: inbox,
             call_sid: twilio_call_sid,
-            caller: { source_ids: [twilio_from], contact_attributes: { name: twilio_from, phone_number: twilio_from } },
+            caller: { source_ids: [twilio_from], contact_attributes: caller_contact_attributes },
             defer_routing: inbox.channel.voice_language_menu_enabled?
           )
         when 'outbound-api', 'outbound-dial'
@@ -216,11 +228,41 @@ module Custom
         end
       end
 
+      # A WhatsApp caller arrives as whatsapp:+E164, which is the contact's source
+      # id but not a phone number. WhatsApp also sends the caller's profile name.
+      def caller_contact_attributes
+        phone = twilio_from.delete_prefix('whatsapp:')
+        name = inbox.channel.whatsapp? ? params[:CallerName].presence : nil
+        { name: name || phone, phone_number: phone }
+      end
+
+      # call_sid is a parameter the browser chooses, so it says which call the
+      # leg wants, never that the agent may have it. The identity is the part
+      # that cannot be chosen: TokenService signs it into the SDK token and
+      # Twilio sends it back as From. ConferenceController#create enforces the
+      # exclusive claim on the dashboard side; without this check the same leg
+      # could skip that endpoint and dial straight into any call of the inbox.
+      #
+      # The agent the call is ringing for, or the one who claimed it. Taking a
+      # call from the queue still works: the dashboard claims it through
+      # ConferenceController#create before the Device ever dials, so by the time
+      # this leg arrives accepted_by_agent_id already names them.
       def find_call_for_agent
         sid = params[:call_sid].presence
         raise ArgumentError, 'call_sid is required for agent leg' if sid.blank?
 
-        inbox_calls.find_by!(provider_call_id: sid)
+        call = inbox_calls.find_by!(provider_call_id: sid)
+        return call if entitled_agent_id?(call)
+
+        Rails.logger.warn("VOICE_AGENT_LEG_REFUSED: call=#{call.id} identity=#{twilio_from}")
+        nil
+      end
+
+      def entitled_agent_id?(call)
+        match = twilio_from.delete_prefix('client:').match(Custom::Voice::Conference::Manager::AGENT_LABEL_PATTERN)
+        return false unless match && match[2].to_i == call.account_id
+
+        [call.accepted_by_agent_id, call.current_ring_agent_id].include?(match[1].to_i)
       end
 
       def sync_outbound_leg(call_sid:, direction:)
@@ -260,8 +302,7 @@ module Custom
       end
 
       def language_action_url(attempt)
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: phone_digits, attempt: attempt)
+        Rails.application.routes.url_helpers.custom_twilio_voice_language_url(phone: inbox_channel.voice_webhook_key, attempt: attempt)
       end
 
       def conference_twiml(call)
@@ -300,13 +341,11 @@ module Custom
       end
 
       def conference_status_callback_url
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_conference_status_url(phone: phone_digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_conference_status_url(phone: inbox_channel.voice_webhook_key)
       end
 
       def recording_status_callback_url
-        phone_digits = inbox_channel.phone_number.delete_prefix('+')
-        Rails.application.routes.url_helpers.custom_twilio_voice_recording_status_url(phone: phone_digits)
+        Rails.application.routes.url_helpers.custom_twilio_voice_recording_status_url(phone: inbox_channel.voice_webhook_key)
       end
 
       def find_call_for_conference!(friendly_name, call_sid)
@@ -328,9 +367,10 @@ module Custom
         head :forbidden unless validator.validate(request.original_url, request.POST, signature)
       end
 
+      # The inverse of Channel::TwilioSms#voice_webhook_key.
       def set_inbox!
         digits = params[:phone].to_s.gsub(/\D/, '')
-        phone_number = "+#{digits}"
+        phone_number = params[:phone].to_s.start_with?('whatsapp-') ? "whatsapp:+#{digits}" : "+#{digits}"
         channel = ::Channel::TwilioSms.find_by!(phone_number: phone_number)
         raise ActiveRecord::RecordNotFound, "Voice not enabled for #{phone_number}" unless channel.voice_enabled?
 
