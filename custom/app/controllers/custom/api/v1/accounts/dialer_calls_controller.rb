@@ -59,7 +59,8 @@ module Custom
 
           def voice_inbox
             inbox = Current.account.inboxes.find(params[:inbox_id])
-            raise ActiveRecord::RecordNotFound unless inbox.channel_type == 'Channel::TwilioSms' && inbox.channel.voice_enabled?
+            # WhatsApp inboxes only receive calls: Twilio rejects an outgoing one from a whatsapp: number.
+            raise ActiveRecord::RecordNotFound unless inbox.channel_type == 'Channel::TwilioSms' && inbox.channel.sms? && inbox.channel.voice_enabled?
 
             inbox
           end
