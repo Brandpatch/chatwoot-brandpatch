@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import { useMapGetter, useStore } from 'dashboard/composables/store';
 import {
-  isVoiceCallEnabled,
+  isOutboundVoiceCallEnabled,
   getVoiceCallProvider,
   VOICE_CALL_PROVIDERS,
 } from 'dashboard/helper/inbox';
@@ -47,7 +47,7 @@ const inboxesList = useMapGetter('inboxes/getInboxes');
 const contactsUiFlags = useMapGetter('contacts/getUIFlags');
 
 const voiceInboxes = computed(() =>
-  (inboxesList.value || []).filter(isVoiceCallEnabled)
+  (inboxesList.value || []).filter(isOutboundVoiceCallEnabled)
 );
 const hasVoiceInboxes = computed(() => voiceInboxes.value.length > 0);
 
@@ -171,7 +171,7 @@ const onClick = async () => {
     const conversationInbox = (inboxesList.value || []).find(
       i => i.id === conversation?.inbox_id
     );
-    if (conversationInbox && isVoiceCallEnabled(conversationInbox)) {
+    if (conversationInbox && isOutboundVoiceCallEnabled(conversationInbox)) {
       await startCall(conversationInbox.id, props.conversationId);
       return;
     }

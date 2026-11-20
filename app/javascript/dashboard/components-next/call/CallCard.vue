@@ -2,7 +2,11 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { VOICE_CALL_DIRECTION } from 'dashboard/components-next/message/constants';
-import { VOICE_CALL_PROVIDERS } from 'dashboard/helper/inbox';
+import {
+  getInboxVoiceIcon,
+  INBOX_TYPES,
+  VOICE_CALL_PROVIDERS,
+} from 'dashboard/helper/inbox';
 import Avatar from 'dashboard/components-next/avatar/Avatar.vue';
 import NextButton from 'dashboard/components-next/button/Button.vue';
 import Icon from 'dashboard/components-next/icon/Icon.vue';
@@ -62,6 +66,9 @@ const statusLabel = computed(() => {
 const channelIcon = computed(() => {
   if (props.call?.provider === VOICE_CALL_PROVIDERS.WHATSAPP)
     return 'i-ri-whatsapp-fill';
+  const { channel_type: channelType, medium } = props.callInfo.inbox || {};
+  if (channelType === INBOX_TYPES.TWILIO && medium === 'whatsapp')
+    return getInboxVoiceIcon(channelType, medium);
   return 'i-ph-phone-bold';
 });
 

@@ -4,6 +4,7 @@ import { useStore } from 'dashboard/composables/store';
 import { useI18n } from 'vue-i18n';
 import {
   getVoiceCallProvider,
+  isOutboundVoiceCallEnabled,
   VOICE_CALL_PROVIDERS,
 } from 'dashboard/helper/inbox';
 import {
@@ -39,7 +40,7 @@ const { isCloudFeatureEnabled } = useAccount();
 const voiceCallProvider = computed(() => getVoiceCallProvider(props.inbox));
 const isVoiceCallInbox = computed(
   () =>
-    voiceCallProvider.value !== null &&
+    isOutboundVoiceCallEnabled(props.inbox) &&
     (isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE) ||
       isCloudFeatureEnabled(FEATURE_FLAGS.CHANNEL_VOICE_BRANDPATCH))
 );
