@@ -96,6 +96,18 @@ module Custom
         end
       end
 
+      # Who takes a conversation whose caller left before anyone was rung. The
+      # same rotation as ringing, but nothing is reserved and an agent already on
+      # a call still qualifies: this is a call to return later, not one being
+      # offered now. Nobody when the account has paused inbound calls, which
+      # leaves the conversation for the team by design (see next_agent).
+      def follow_up_agent
+        return if inbox.account.brandpatch_inbound_calls_paused?
+
+        agents = inbox.members.where(id: online_agent_ids)
+        round_robin_pick(agents) if agents.any?
+      end
+
       private
 
       # The dialer would otherwise hand an agent the next lead the moment their
