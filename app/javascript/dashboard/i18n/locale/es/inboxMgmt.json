@@ -675,7 +675,8 @@
       },
       "INBOUND": {
         "LABEL": "Permitir llamadas entrantes",
-        "DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación. Los agentes todavía pueden realizar llamadas salientes."
+        "DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación. Los agentes todavía pueden realizar llamadas salientes.",
+        "WHATSAPP_DESCRIPTION": "Permitir que los clientes llamen a este número. Cuando se desactivan, las llamadas entrantes son rechazadas automáticamente: los agentes no son notificados y no se crea ninguna conversación."
       },
       "CALLER_ID": {
         "LABEL": "Número que ve el cliente al llamar",
