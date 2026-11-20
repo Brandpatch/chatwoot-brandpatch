@@ -46,11 +46,16 @@ export default {
       return this.inbox.medium === 'whatsapp';
     },
     voiceDescription() {
-      return this.$t(
-        this.isWhatsApp
-          ? 'INBOX_MGMT.VOICE_CONFIGURATION.ENABLE_VOICE.WHATSAPP_DESCRIPTION'
-          : 'INBOX_MGMT.VOICE_CONFIGURATION.ENABLE_VOICE.DESCRIPTION'
-      );
+      return this.isWhatsApp
+        ? this.$t(
+            'INBOX_MGMT.VOICE_CONFIGURATION.ENABLE_VOICE.WHATSAPP_DESCRIPTION'
+          )
+        : this.$t('INBOX_MGMT.VOICE_CONFIGURATION.ENABLE_VOICE.DESCRIPTION');
+    },
+    inboundDescription() {
+      return this.isWhatsApp
+        ? this.$t('INBOX_MGMT.VOICE_CONFIGURATION.INBOUND.WHATSAPP_DESCRIPTION')
+        : this.$t('INBOX_MGMT.VOICE_CONFIGURATION.INBOUND.DESCRIPTION');
     },
     isVoiceConfigured() {
       return !!this.inbox.voice_configured;
@@ -117,6 +122,7 @@ export default {
   watch: {
     'inbox.voice_enabled'(val) {
       this.voiceEnabled = val || false;
+      if (val && !this.isWhatsApp) this.loadCallerIds();
     },
     'inbox.api_key_sid'(val) {
       this.apiKeySid = val || '';
@@ -135,9 +141,6 @@ export default {
     },
     'inbox.voice_caller_id'(val) {
       this.voiceCallerId = val || '';
-    },
-    'inbox.voice_enabled'(val) {
-      if (val && !this.isWhatsApp) this.loadCallerIds();
     },
   },
   mounted() {
@@ -201,9 +204,7 @@ export default {
         this.apiKeySecret = '';
         useAlert(this.$t('INBOX_MGMT.EDIT.API.SUCCESS_MESSAGE'));
       } catch (error) {
-        useAlert(
-          error.message || this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE')
-        );
+        useAlert(error.message || this.$t('INBOX_MGMT.EDIT.API.ERROR_MESSAGE'));
       } finally {
         this.isUpdating = false;
       }
@@ -248,7 +249,7 @@ export default {
       <SettingsToggleSection
         :model-value="inboundCallsEnabled"
         :header="$t('INBOX_MGMT.VOICE_CONFIGURATION.INBOUND.LABEL')"
-        :description="$t('INBOX_MGMT.VOICE_CONFIGURATION.INBOUND.DESCRIPTION')"
+        :description="inboundDescription"
         :hide-toggle="isTogglingInbound"
         @update:model-value="handleInboundToggle"
       >
@@ -312,12 +313,16 @@ export default {
       />
       <SettingsFieldSection
         :label="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.LABEL')"
-        :help-text="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.DESCRIPTION')"
+        :help-text="
+          $t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.DESCRIPTION')
+        "
       >
         <NextInput
           v-model="ringTimeoutSeconds"
           type="number"
-          :placeholder="$t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.PLACEHOLDER')"
+          :placeholder="
+            $t('INBOX_MGMT.VOICE_CONFIGURATION.RING_TIMEOUT.PLACEHOLDER')
+          "
         />
       </SettingsFieldSection>
       <SettingsFieldSection
@@ -327,7 +332,9 @@ export default {
         <NextInput
           v-model="maxWaitSeconds"
           type="number"
-          :placeholder="$t('INBOX_MGMT.VOICE_CONFIGURATION.MAX_WAIT.PLACEHOLDER')"
+          :placeholder="
+            $t('INBOX_MGMT.VOICE_CONFIGURATION.MAX_WAIT.PLACEHOLDER')
+          "
         />
       </SettingsFieldSection>
     </div>
