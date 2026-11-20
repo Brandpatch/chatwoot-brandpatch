@@ -96,16 +96,24 @@ module Custom
         end
       end
 
-      # Who takes a conversation whose caller left before anyone was rung. The
-      # same rotation as ringing, but nothing is reserved and an agent already on
-      # a call still qualifies: this is a call to return later, not one being
-      # offered now. Nobody when the account has paused inbound calls, which
-      # leaves the conversation for the team by design (see next_agent).
+      # Who takes a conversation whose caller left before anyone was rung: the
+      # online member who was last given one of these the longest ago. Ringing
+      # rotates on answered calls, which an abandoned one never adds to, so
+      # reusing it would hand every one of them to the same agent. Nothing is
+      # reserved, and an agent already on a call still qualifies: this is a call
+      # to return later, not one being offered now. Nobody when the account has
+      # paused inbound calls, which leaves the conversation for the team by
+      # design (see next_agent).
       def follow_up_agent
         return if inbox.account.brandpatch_inbound_calls_paused?
 
         agents = inbox.members.where(id: online_agent_ids)
-        round_robin_pick(agents) if agents.any?
+        return if agents.empty?
+
+        last_given_at = Custom::Call.where(account_id: inbox.account_id)
+                                    .where.not("calls.meta->>'follow_up_agent_id'" => nil)
+                                    .group(Arel.sql("calls.meta->>'follow_up_agent_id'")).maximum(:created_at)
+        agents.min_by { |agent| last_given_at[agent.id.to_s] || Time.zone.at(0) }
       end
 
       private

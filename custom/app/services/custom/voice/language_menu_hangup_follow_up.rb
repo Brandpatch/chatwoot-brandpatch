@@ -38,6 +38,7 @@ module Custom
         return unless agent
 
         ::Conversations::AssignmentService.new(conversation: conversation, assignee_id: agent.id).perform
+        call.update!(meta: call.meta.merge('follow_up_agent_id' => agent.id))
       end
 
       def add_note!(conversation)
