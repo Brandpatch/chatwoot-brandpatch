@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/com-1610-whatsapp-voice-tab
 
 jobs:
   build-and-push:
