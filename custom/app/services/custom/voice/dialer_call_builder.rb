@@ -50,10 +50,16 @@ module Custom
         Custom::Call.active.where(account_id: inbox.account_id).exists?(["meta -> 'dialer' ->> 'external_id' = ?", external_id])
       end
 
+      # A contact that already existed (e.g. from an earlier call) may only
+      # carry the phone number as its name; give it the lead's name then, but
+      # never overwrite a name someone set.
       def resolve_contact_inbox!
-        ContactInboxSourceIdResolver.new(
+        contact_inbox = ContactInboxSourceIdResolver.new(
           inbox: inbox, source_ids: [phone_number], contact_attributes: { name: name.presence || phone_number, phone_number: phone_number }
         ).perform
+        contact = contact_inbox.contact
+        contact.update!(name: name) if name.present? && contact.name.to_s.gsub(/[\s+]/, '').in?(['', phone_number.delete('+')])
+        contact_inbox
       end
 
       # Written as the integration user who asked for the call, the same way a
