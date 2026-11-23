@@ -43,6 +43,18 @@ RSpec.describe 'Custom dialer calls API', type: :request do
       expect(call.conversation.messages.where(private: true).last.content).to eq('Wants a quote')
     end
 
+    it 'names an existing contact that only carries the phone number, but keeps a real name' do
+      unnamed = create(:contact, account: account, name: '+15550001111', phone_number: '+15550001111')
+      named = create(:contact, account: account, name: 'Set By Agent', phone_number: '+15550002222')
+
+      post url, params: body, headers: admin.create_new_auth_token, as: :json
+      Custom::Call.find(response.parsed_body['call_id']).update!(status: 'completed')
+      post url, params: body.merge(external_id: 'lead-2', phone_number: '+15550002222'), headers: admin.create_new_auth_token, as: :json
+
+      expect(unnamed.reload.name).to eq('Lead Name')
+      expect(named.reload.name).to eq('Set By Agent')
+    end
+
     it 'leaves the reserved agent occupied for the next request' do
       post url, params: body, headers: admin.create_new_auth_token, as: :json
       post url, params: body.merge(external_id: 'lead-2', phone_number: '+15550002222'), headers: admin.create_new_auth_token, as: :json
