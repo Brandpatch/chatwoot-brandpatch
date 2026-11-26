@@ -57,6 +57,10 @@ const onlineAgents = computed(() =>
 
 const count = computed(() => onlineAgents.value.length);
 
+const statusDotClass = computed(() =>
+  count.value ? 'bg-n-teal-10' : 'bg-n-slate-8'
+);
+
 const collapsedTitle = computed(() => {
   const title = `${t('ONLINE_AGENTS_PANEL.TITLE')} (${count.value})`;
   if (!count.value) return `${title}\n${t('ONLINE_AGENTS_PANEL.EMPTY')}`;
@@ -77,34 +81,39 @@ onMounted(() => {
   <div
     v-if="isCollapsed"
     data-test-id="online-agents-collapsed"
-    class="flex relative items-center justify-center size-8 rounded-lg text-xs font-medium text-n-slate-11"
+    class="flex items-center justify-center size-8 rounded-lg text-xs font-medium text-n-slate-11"
     :title="collapsedTitle"
   >
-    <span>{{ count }}</span>
-    <span
-      class="absolute top-1 ltr:right-1 rtl:left-1 size-1.5 rounded-full"
-      :class="count ? 'bg-n-teal-10' : 'bg-n-slate-8'"
-    />
+    <span class="relative tabular-nums leading-none">
+      {{ count }}
+      <span
+        class="absolute -top-1 ltr:-right-1.5 rtl:-left-1.5 size-1.5 rounded-full"
+        :class="statusDotClass"
+      />
+    </span>
   </div>
   <div v-else data-test-id="online-agents" class="flex flex-col w-full px-2">
     <button
       type="button"
       data-test-id="online-agents-toggle"
-      class="flex items-center gap-2 w-full h-8 px-2 rounded-lg text-sm font-medium text-n-slate-11 hover:bg-n-alpha-2"
+      class="flex items-center gap-1 w-full h-8 ps-2 pe-1.5 rounded-lg text-sm font-medium text-n-slate-11 hover:bg-n-alpha-2"
       :aria-expanded="!isFolded"
       @click="toggleFolded"
     >
-      <span class="size-2 rounded-full flex-shrink-0 bg-n-teal-10" />
-      <span class="truncate">{{ t('ONLINE_AGENTS_PANEL.TITLE') }}</span>
+      <span class="truncate min-w-0">{{ t('ONLINE_AGENTS_PANEL.TITLE') }}</span>
       <span
-        data-test-id="online-agents-count"
-        class="text-xs text-n-slate-10 tabular-nums"
+        class="ms-auto flex flex-shrink-0 items-center gap-1 px-1 rounded-full bg-n-alpha-2 text-xs leading-4 text-n-slate-10 tabular-nums"
       >
-        {{ count }}
+        <span
+          data-test-id="online-agents-dot"
+          class="size-1.5 rounded-full"
+          :class="statusDotClass"
+        />
+        <span data-test-id="online-agents-count">{{ count }}</span>
       </span>
       <Icon
         icon="i-lucide-chevron-down"
-        class="size-4 ms-auto flex-shrink-0 transition-transform"
+        class="size-3.5 flex-shrink-0 transition-transform"
         :class="{ 'ltr:-rotate-90 rtl:rotate-90': isFolded }"
       />
     </button>

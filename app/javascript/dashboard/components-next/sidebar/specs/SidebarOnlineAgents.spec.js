@@ -86,6 +86,16 @@ describe('SidebarOnlineAgents', () => {
     );
   });
 
+  it('greys out the status dot only when nobody is online', async () => {
+    const wrapper = mountPanel();
+    const dot = () => wrapper.find('[data-test-id="online-agents-dot"]');
+    expect(dot().classes()).toContain('bg-n-teal-10');
+
+    agents.value = [{ id: 3, name: 'Carla', availability_status: 'offline' }];
+    await wrapper.vm.$nextTick();
+    expect(dot().classes()).toContain('bg-n-slate-8');
+  });
+
   it('renders only the count with names in the title when collapsed', () => {
     const wrapper = mountPanel({ isCollapsed: true });
     const compact = wrapper.find('[data-test-id="online-agents-collapsed"]');
