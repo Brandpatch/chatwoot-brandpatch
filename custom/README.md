@@ -48,6 +48,8 @@ instancias EC2, el despliegue, los avisos y el estado de los respaldos— ver
   - [Bugs encontrados durante el QA (ya corregidos)](#bugs-encontrados-durante-el-qa-ya-corregidos-2)
   - [Pendientes conocidos](#pendientes-conocidos)
   - [Comandos útiles (SSH)](#comandos-útiles-ssh-2)
+- [Agentes en línea en la barra lateral](#agentes-en-línea-en-la-barra-lateral)
+  - [Mapa de archivos (frontend)](#mapa-de-archivos-frontend-3)
 
 ## Por qué existe esta carpeta
 
@@ -1118,3 +1120,25 @@ grep -E '/twilio/voice/custom/[a-z_]+/NUMERO' /var/log/nginx/access.log | tail
 ```
 Si todas las líneas dicen `/status/` y ninguna `/call/`, el manejador
 principal del número está mal configurado.
+
+## Agentes en línea en la barra lateral
+
+Sección "Agentes en línea" en la parte baja de la barra lateral del dashboard
+(COM-1757): cualquier usuario logueado ve qué agentes están `online` u
+`busy` en este momento (primero en línea, después ocupados, cada grupo en
+orden alfabético). Es solo lectura y no tiene feature flag. Carga los agentes
+una vez con `agents/get` y la presencia en tiempo real llega por el evento
+ActionCable `presence.update` (`helper/actionCable.js` →
+`agents/updatePresence`), así que no hay backend propio. El estado
+plegado/desplegado se guarda en `localStorage`
+(`brandpatch.sidebar.onlineAgents.folded`). Con la barra colapsada muestra
+solo el contador, con los nombres en el `title`.
+
+### Mapa de archivos (frontend)
+
+| Archivo | Qué hace |
+|---|---|
+| `app/javascript/dashboard/components-next/sidebar/SidebarOnlineAgents.vue` | Componente nuevo: lista, contador, plegado y modo colapsado |
+| `app/javascript/dashboard/components-next/sidebar/specs/SidebarOnlineAgents.spec.js` | Spec de vitest (orden, filtro, contador, colapsado, plegado) |
+| `app/javascript/dashboard/components-next/sidebar/Sidebar.vue` | Core: import + montaje antes del menú de perfil (marcado `[brandpatch]`) |
+| `app/javascript/dashboard/i18n/locale/{en,es}/general.json` | Claves `ONLINE_AGENTS_PANEL.TITLE` / `EMPTY` |
