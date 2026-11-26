@@ -15,5 +15,9 @@
   "CHOICE_TOGGLE": {
     "YES": "Si",
     "NO": "No"
+  },
+  "ONLINE_AGENTS_PANEL": {
+    "TITLE": "Agentes en línea",
+    "EMPTY": "Ningún agente en línea"
   }
 }
